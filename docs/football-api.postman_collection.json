@@ -1,0 +1,631 @@
+{
+  "info": {
+    "name": "Football API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "description": "Postman collection generated from Laravel API routes (Api/V1)"
+  },
+  "variable": [
+    { "key": "base_url", "value": "https://grinta.my-dev.art/api/v1", "type": "string" },
+    { "key": "token",    "value": "",                          "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/login", "host": ["{{base_url}}"], "path": ["login"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"password\": \"password\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/register", "host": ["{{base_url}}"], "path": ["register"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"user@example.com\",\n  \"password\": \"password\",\n  \"password_confirmation\": \"password\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Social Login",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/social", "host": ["{{base_url}}"], "path": ["social"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"provider\": \"google\",\n  \"token\": \"SOCIAL_TOKEN_HERE\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Verify Email",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/verify_email", "host": ["{{base_url}}"], "path": ["verify_email"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"token\": \"VERIFICATION_TOKEN\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/logout", "host": ["{{base_url}}"], "path": ["logout"] }
+          }
+        },
+        {
+          "name": "Delete Account",
+          "request": {
+            "method": "DELETE",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/delete-account", "host": ["{{base_url}}"], "path": ["delete-account"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Password Reset",
+      "item": [
+        {
+          "name": "Send Token to Email",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/sent_token_to_email", "host": ["{{base_url}}"], "path": ["sent_token_to_email"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Change Password",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "url": { "raw": "{{base_url}}/change_password", "host": ["{{base_url}}"], "path": ["change_password"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@example.com\",\n  \"token\": \"RESET_TOKEN\",\n  \"password\": \"newpassword\",\n  \"password_confirmation\": \"newpassword\"\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Categories",
+      "item": [
+        {
+          "name": "List Categories",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/categories", "host": ["{{base_url}}"], "path": ["categories"] }
+          }
+        },
+        {
+          "name": "Get Category",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/categories/1", "host": ["{{base_url}}"], "path": ["categories", "1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Posts",
+      "item": [
+        {
+          "name": "List Posts (Paginated)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/posts", "host": ["{{base_url}}"], "path": ["posts"] }
+          }
+        },
+        {
+          "name": "All Posts",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/posts/all", "host": ["{{base_url}}"], "path": ["posts", "all"] }
+          }
+        },
+        {
+          "name": "Get Post",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/posts/1", "host": ["{{base_url}}"], "path": ["posts", "1"] }
+          }
+        },
+        {
+          "name": "Posts All (Send Posts)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/posts-all", "host": ["{{base_url}}"], "path": ["posts-all"] }
+          }
+        },
+        {
+          "name": "Featured Posts",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/featuredPosts", "host": ["{{base_url}}"], "path": ["featuredPosts"] }
+          }
+        },
+        {
+          "name": "All Posts (allPosts)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/allPosts", "host": ["{{base_url}}"], "path": ["allPosts"] }
+          }
+        },
+        {
+          "name": "Search Posts",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{base_url}}/search/posts?q=keyword",
+              "host": ["{{base_url}}"],
+              "path": ["search", "posts"],
+              "query": [{ "key": "q", "value": "keyword" }]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Competitions",
+      "item": [
+        {
+          "name": "List Competitions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/competitions", "host": ["{{base_url}}"], "path": ["competitions"] }
+          }
+        },
+        {
+          "name": "Get Competition",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/competitions/1", "host": ["{{base_url}}"], "path": ["competitions", "1"] }
+          }
+        },
+        {
+          "name": "Competition Posts",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/competitions/1/posts", "host": ["{{base_url}}"], "path": ["competitions", "1", "posts"] }
+          }
+        },
+        {
+          "name": "Competition Posts (Dashboard)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/competitions/1/postsd", "host": ["{{base_url}}"], "path": ["competitions", "1", "postsd"] }
+          }
+        },
+        {
+          "name": "Competition Teams",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/competitions/1/teams", "host": ["{{base_url}}"], "path": ["competitions", "1", "teams"] }
+          }
+        },
+        {
+          "name": "Competition Teams (Dashboard)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/competitions/1/teamsdash", "host": ["{{base_url}}"], "path": ["competitions", "1", "teamsdash"] }
+          }
+        },
+        {
+          "name": "Competition Points / Standings",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/competitions/1/points", "host": ["{{base_url}}"], "path": ["competitions", "1", "points"] }
+          }
+        },
+        {
+          "name": "Competition Matches",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/competitions/1/matches", "host": ["{{base_url}}"], "path": ["competitions", "1", "matches"] }
+          }
+        },
+        {
+          "name": "Competition Child",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/competitions/1/child", "host": ["{{base_url}}"], "path": ["competitions", "1", "child"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Teams",
+      "item": [
+        {
+          "name": "List Teams",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/teams", "host": ["{{base_url}}"], "path": ["teams"] }
+          }
+        },
+        {
+          "name": "Get Teams by IDs",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/in/teams", "host": ["{{base_url}}"], "path": ["in", "teams"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ids\": [1, 2, 3]\n}"
+            }
+          }
+        },
+        {
+          "name": "Search Teams",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{base_url}}/search/teams?q=keyword",
+              "host": ["{{base_url}}"],
+              "path": ["search", "teams"],
+              "query": [{ "key": "q", "value": "keyword" }]
+            }
+          }
+        },
+        {
+          "name": "Get Team",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/teams/1", "host": ["{{base_url}}"], "path": ["teams", "1"] }
+          }
+        },
+        {
+          "name": "Get Team (Dashboard)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/teams/1/teamd", "host": ["{{base_url}}"], "path": ["teams", "1", "teamd"] }
+          }
+        },
+        {
+          "name": "Team Posts",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/teams/1/posts", "host": ["{{base_url}}"], "path": ["teams", "1", "posts"] }
+          }
+        },
+        {
+          "name": "Team Competitions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/teams/1/competitions", "host": ["{{base_url}}"], "path": ["teams", "1", "competitions"] }
+          }
+        },
+        {
+          "name": "Team Matches",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/teams/1/matches", "host": ["{{base_url}}"], "path": ["teams", "1", "matches"] }
+          }
+        },
+        {
+          "name": "Team Standing in Competition",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/teams/1/standing/10", "host": ["{{base_url}}"], "path": ["teams", "1", "standing", "10"] }
+          }
+        },
+        {
+          "name": "Team Standing Competitions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/teams/1/standing_competitions", "host": ["{{base_url}}"], "path": ["teams", "1", "standing_competitions"] }
+          }
+        },
+        {
+          "name": "Team Head-to-Head (Confrontations)",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/teams/1/confrontations/2", "host": ["{{base_url}}"], "path": ["teams", "1", "confrontations", "2"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Players",
+      "item": [
+        {
+          "name": "List Players",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/players", "host": ["{{base_url}}"], "path": ["players"] }
+          }
+        },
+        {
+          "name": "Get All Players (POST)",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/players/allpl", "host": ["{{base_url}}"], "path": ["players", "allpl"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ids\": [1, 2, 3]\n}"
+            }
+          }
+        },
+        {
+          "name": "Get Player",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/players/1", "host": ["{{base_url}}"], "path": ["players", "1"] }
+          }
+        },
+        {
+          "name": "Player Statistics",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/players/1/statistic", "host": ["{{base_url}}"], "path": ["players", "1", "statistic"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Matches",
+      "item": [
+        {
+          "name": "List Matches",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/matches", "host": ["{{base_url}}"], "path": ["matches"] }
+          }
+        },
+        {
+          "name": "Get Match",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/matches/1", "host": ["{{base_url}}"], "path": ["matches", "1"] }
+          }
+        },
+        {
+          "name": "Match Events",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/matches/1/events", "host": ["{{base_url}}"], "path": ["matches", "1", "events"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Client / Profile",
+      "item": [
+        {
+          "name": "Get Profile",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/client/profile", "host": ["{{base_url}}"], "path": ["client", "profile"] }
+          }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/client/profile/update", "host": ["{{base_url}}"], "path": ["client", "profile", "update"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"user@example.com\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Update Locale",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/client/profile/updatelocale", "host": ["{{base_url}}"], "path": ["client", "profile", "updatelocale"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"locale\": \"ar\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Favourite Teams",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/client/favourite_teams", "host": ["{{base_url}}"], "path": ["client", "favourite_teams"] }
+          }
+        },
+        {
+          "name": "Add Favourite Team",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/client/favourite_teams", "host": ["{{base_url}}"], "path": ["client", "favourite_teams"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"team_id\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "Remove Favourite Team",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/client/favourite_teams", "host": ["{{base_url}}"], "path": ["client", "favourite_teams"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"team_id\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "Favourite Competitions",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": { "raw": "{{base_url}}/client/favourite_competitions", "host": ["{{base_url}}"], "path": ["client", "favourite_competitions"] }
+          }
+        },
+        {
+          "name": "Add Favourite Competition",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/client/favourite_competitions", "host": ["{{base_url}}"], "path": ["client", "favourite_competitions"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"competition_id\": 1\n}"
+            }
+          }
+        },
+        {
+          "name": "Remove Favourite Competition",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type",  "value": "application/json" }
+            ],
+            "url": { "raw": "{{base_url}}/client/favourite_competitions", "host": ["{{base_url}}"], "path": ["client", "favourite_competitions"] },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"competition_id\": 1\n}"
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Countries",
+      "item": [
+        {
+          "name": "List Countries",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/countries", "host": ["{{base_url}}"], "path": ["countries"] }
+          }
+        },
+        {
+          "name": "Get Country",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/countries/1", "host": ["{{base_url}}"], "path": ["countries", "1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Notifications",
+      "description": "⚠️ These endpoints are unauthenticated — consider adding auth middleware (IDOR risk).",
+      "item": [
+        {
+          "name": "Daily Notification",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/notification/daily/1", "host": ["{{base_url}}"], "path": ["notification", "daily", "1"] }
+          }
+        },
+        {
+          "name": "Weekly Notification",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/notification/weekly/1", "host": ["{{base_url}}"], "path": ["notification", "weekly", "1"] }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Settings",
+      "item": [
+        {
+          "name": "Get Settings",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": { "raw": "{{base_url}}/setting", "host": ["{{base_url}}"], "path": ["setting"] }
+          }
+        }
+      ]
+    }
+  ]
+}
