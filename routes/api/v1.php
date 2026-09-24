@@ -30,6 +30,7 @@ Route::middleware('auth:api')->get('/user', function (Request $request) {
 Route::post('login',        [AuthController::class, 'login']);
 // Route::post('guest',        [GuestController::class, 'storeGuest']);
 Route::post('social',       [AuthController::class, 'social']);
+Route::post('google',       [AuthController::class, 'google']);
 Route::post('register',     [AuthController::class, 'register']);
 Route::post('logout',       [AuthController::class, 'logout'])->middleware('auth:api');
 Route::delete('delete-account', [AuthController::class, 'deleteAccount'])->middleware('auth:api');
