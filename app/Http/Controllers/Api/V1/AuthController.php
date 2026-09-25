@@ -13,6 +13,7 @@ use Google\Client as GoogleClient;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
@@ -79,31 +80,49 @@ class AuthController extends Controller
         return $this->successResponse($response, 200);
     }
 
-    public  function social(Request $request): JsonResponse
+    public function social(Request $request): JsonResponse
     {
-        $rules=[
-//            'full_name'=>['required'],
-//            'email'=> ['required', 'string', 'email', 'max:255'],
-            'fb_token'=>['required'],
-            'social_id'=>['required'],
-            'locale'=>['required']
+        $rules = [
+            'provider'   => ['required', 'in:google,facebook,apple'],
+            'token'      => ['required'],
+            'social_id'  => ['nullable'],
+            'email'      => ['nullable', 'email'],
+            'full_name'  => ['nullable', 'string'],
+            'fb_token'   => ['nullable'],
+            'locale'     => ['nullable'],
         ];
         $request->validate($rules);
-        if($request->input('locale') != "en" && $request->input('locale') != "ar"){
-            $request->locale = "en";
-        }
+
+        $locale = in_array($request->input('locale', 'en'), ['en', 'ar']) ? $request->input('locale', 'en') : 'en';
+
         $socialId = $request->input('social_id');
         $email    = $request->input('email');
+        $fullName = $request->input('full_name');
 
-        $is_already_registered = false;
+        // Extract user data from the Google token (id_token or access_token)
+        if ($request->input('provider') === 'google') {
+            $googleData = $this->fetchGoogleData($request->input('token'));
+            if ($googleData === null) {
+                return $this->errorResponse('Invalid Google token', 400);
+            }
+            $socialId = $googleData['sub'];
+            $email    = $googleData['email'] ?? $email;
+            $fullName = $googleData['name'] ?? $fullName;
+        }
+
+        if ($socialId === null) {
+            return $this->errorResponse('social_id is required', 400);
+        }
+
+        $isAlreadyRegistered = false;
 
         // 1) Already registered with this social_id -> just log in
         $client = Client::query()->where('social_id', $socialId)->first();
         if (!is_null($client)) {
-            $is_already_registered = true;
+            $isAlreadyRegistered = true;
         }
 
-        // 2) Social login found -> link social_id to existing password account
+        // 2) Same email already has an account -> link the social login to it and log in
         if ($client === null && $email !== null) {
             $clientWithEmail = Client::query()->where('email', $email)->first();
             if ($clientWithEmail !== null) {
@@ -113,27 +132,77 @@ class AuthController extends Controller
                 $client = $clientWithEmail;
                 $client->update([
                     'social_id'         => $socialId,
+                    'email'             => $email,
                     'email_verified_at' => $clientWithEmail->email_verified_at ?? now(),
                 ]);
             }
         }
 
-        // 3) No existing account at all -> create a new one (never without email)
+        // 3) No existing account at all -> create a new one (email is always saved)
         if ($client === null) {
             if ($email === null) {
                 return $this->errorResponse('email is required to create an account', 400);
             }
-            $request_data = $request->except(['password']);
-            $request_data['verified_code']     = null;
-            $request_data['email_verified_at'] = now();
-            $request_data['password']          = Hash::make(Str::random(40));
-            $client = Client::query()->create($request_data);
+            $client = Client::query()->create([
+                'full_name'         => $fullName,
+                'email'             => $email,
+                'password'          => Hash::make(Str::random(40)),
+                'social_id'         => $socialId,
+                'fb_token'          => $request->input('fb_token'),
+                'verified_code'     => null,
+                'email_verified_at' => now(),
+                'locale'            => $locale,
+            ]);
         }
 
         $token = now() . Str::random(60);
-        $client->update(['api_token'=>$token,'locale'=>$request->input('locale'),'fb_token'=>$request->input('fb_token')]);
-        $response = ['token' => $token,'registered_client' => $is_already_registered, 'client'=>$client];
+        $client->update([
+            'api_token' => $token,
+            'locale'    => $locale,
+            'fb_token'  => $request->input('fb_token'),
+        ]);
+
+        $response = ['token' => $token, 'registered_client' => $isAlreadyRegistered, 'client' => $client];
         return $this->successResponse($response, 200);
+    }
+
+    private function fetchGoogleData(?string $token): ?array
+    {
+        if (!$token) {
+            return null;
+        }
+
+        // 1) Try validating the token as a Google id_token (JWT signed by Google)
+        try {
+            $client = new GoogleClient(['client_id' => config('services.google.client_id')]);
+            $payload = $client->verifyIdToken($token);
+            if (is_array($payload) && isset($payload['sub'])) {
+                return [
+                    'sub'   => $payload['sub'],
+                    'email' => $payload['email'] ?? null,
+                    'name'  => $payload['name'] ?? null,
+                ];
+            }
+        } catch (Exception $e) {
+            // not an id_token -> try the access-token path below
+        }
+
+        // 2) Treat it as a Google access_token and ask Google for the profile
+        try {
+            $response = Http::withToken($token)->get('https://www.googleapis.com/oauth2/v3/userinfo');
+            $data     = $response->json();
+            if ($response->successful() && isset($data['sub'])) {
+                return [
+                    'sub'   => $data['sub'],
+                    'email' => $data['email'] ?? null,
+                    'name'  => $data['name'] ?? null,
+                ];
+            }
+        } catch (Exception $e) {
+            // ignore
+        }
+
+        return null;
     }
 
     public function google(Request $request): JsonResponse
