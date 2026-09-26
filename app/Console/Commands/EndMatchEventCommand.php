@@ -87,25 +87,6 @@ class EndMatchEventCommand extends Command
                         'match_date' => $value["fixture"]["date"],
                     ]);
 
-                    $status                    = $value["fixture"]["status"]["short"];
-                    $notificationSentDatabase  = $match->notificationSent;
-                    $notificationSentDatabaseArray = explode(',', $notificationSentDatabase);
-
-                    if ($status == "FT") {
-                        $this->sendMatchStatus($match, $matches, "FT", $notificationSentDatabaseArray, "نهاية المباراة", "Match Finished", true, true);
-                    } elseif ($status == "BT") {
-                        $this->sendMatchStatus($match, $matches, "BT", $notificationSentDatabaseArray, "استراحة ما بين الأشواط الإضافية", "Break During Extra Time", true, true);
-                    } elseif ($status == "AET") {
-                        $this->sendMatchStatus($match, $matches, "AET", $notificationSentDatabaseArray, "نهاية الأشواط الإضافية و انتهت المباراة", "Match Finished After Extra Time", true, true);
-                    } elseif ($status == "PEN") {
-                        $this->sendMatchStatus(
-                            $match, $matches, "PEN", $notificationSentDatabaseArray,
-                            "نهاية المباراة بركلات الترجيح " . ($value['score']['penalty']['home'] ?? 0) . ' - ' . ($value['score']['penalty']['away'] ?? 0),
-                            "Match Finished After Penalty " . ($value['score']['penalty']['home'] ?? 0) . ' - ' . ($value['score']['penalty']['away'] ?? 0),
-                            false, true
-                        );
-                    }
-
                 } catch (\Exception $e) {
                     Log::error('end:match fixture failed', [
                         'fixture_id' => $value["fixture"]["id"] ?? null,

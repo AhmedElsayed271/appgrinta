@@ -81,7 +81,11 @@ class MatchesLiveEvenetsAndStatus extends Command
                         $this->events($event, $matches, $value["fixture"]["status"]["elapsed"], $match->id);
                     }
 
-                    $this->matchStatus($value, $league, $match, $matches);
+                    $match->update([
+                        'status'     => $value["fixture"]["status"]["short"],
+                        'elapsed'    => $value["fixture"]["status"]["elapsed"],
+                        'match_date' => $value["fixture"]["date"],
+                    ]);
 
                 } catch (\Exception $e) {
                     Log::error('live:get fixture failed', [

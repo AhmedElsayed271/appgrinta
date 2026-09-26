@@ -256,7 +256,9 @@ trait NotificationOfMatchesTrait{
     {
         
         if (!in_array($time, $notificationSentDatabaseArray)) {
-            $match->notificationSent = $time == "H1" ? $time : ','.$time;
+            $notificationSentArray = array_values(array_filter($notificationSentDatabaseArray));
+            $notificationSentArray[] = $time;
+            $match->notificationSent = implode(',', array_unique($notificationSentArray));
             $match->save();
             $this->sendNotificationsToUsers($matches,$message_en,$message_ar,$showGoals,$mergeImages);
         }
