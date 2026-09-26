@@ -1,0 +1,428 @@
+{
+  "info": {
+    "name": "appgrinta",
+    "description": "Grinta API - Auto-saves api_token & biometric_token after login/social/google/biometric-login into collection variables. base_url = server + /api/v1",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "auth",
+      "item": [
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"full_name\": \"Ahmed\",\n    \"email\": \"user@example.com\",\n    \"password\": \"12345678\",\n    \"password_confirmation\": \"12345678\",\n    \"fb_token\": \"expo_push_token_here\",\n    \"locale\": \"en\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/register",
+              "host": ["{{base_url}}"],
+              "path": ["register"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j && j.data && j.data.token) { pm.collectionVariables.set('api_token', j.data.token); }",
+                  "if (j && j.data && j.data.biometric_token) { pm.collectionVariables.set('biometric_token', j.data.biometric_token); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"user@example.com\",\n    \"password\": \"12345678\",\n    \"fb_token\": \"expo_push_token_here\",\n    \"locale\": \"en\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/login",
+              "host": ["{{base_url}}"],
+              "path": ["login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j && j.data && j.data.token) { pm.collectionVariables.set('api_token', j.data.token); }",
+                  "if (j && j.data && j.data.biometric_token) { pm.collectionVariables.set('biometric_token', j.data.biometric_token); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Social Login (Google token)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"provider\": \"google\",\n    \"token\": \"ya29_OR_eyJ_google_token\",\n    \"fb_token\": \"expo_push_token_here\",\n    \"locale\": \"en\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/social",
+              "host": ["{{base_url}}"],
+              "path": ["social"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j && j.data && j.data.token) { pm.collectionVariables.set('api_token', j.data.token); }",
+                  "if (j && j.data && j.data.biometric_token) { pm.collectionVariables.set('biometric_token', j.data.biometric_token); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Google Login (id_token)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"id_token\": \"eyJ_google_id_token\",\n    \"fb_token\": \"expo_push_token_here\",\n    \"locale\": \"en\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/google",
+              "host": ["{{base_url}}"],
+              "path": ["google"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j && j.data && j.data.token) { pm.collectionVariables.set('api_token', j.data.token); }",
+                  "if (j && j.data && j.data.biometric_token) { pm.collectionVariables.set('biometric_token', j.data.biometric_token); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Biometric - Enable",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{api_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"enabled\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/biometric/toggle",
+              "host": ["{{base_url}}"],
+              "path": ["biometric", "toggle"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j && j.data && j.data.biometric_token) { pm.collectionVariables.set('biometric_token', j.data.biometric_token); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Biometric - Disable",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{api_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"enabled\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/biometric/toggle",
+              "host": ["{{base_url}}"],
+              "path": ["biometric", "toggle"]
+            }
+          }
+        },
+        {
+          "name": "Biometric Login",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"biometric_token\": \"{{biometric_token}}\",\n    \"fb_token\": \"expo_push_token_here\",\n    \"locale\": \"en\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/biometric/login",
+              "host": ["{{base_url}}"],
+              "path": ["biometric", "login"]
+            }
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j && j.data && j.data.token) { pm.collectionVariables.set('api_token', j.data.token); }",
+                  "if (j && j.data && j.data.biometric_token) { pm.collectionVariables.set('biometric_token', j.data.biometric_token); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "My Profile",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{api_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/client/profile",
+              "host": ["{{base_url}}"],
+              "path": ["client", "profile"]
+            }
+          }
+        },
+        {
+          "name": "Update Profile",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{api_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"full_name\": \"Ahmed\",\n    \"email\": \"user@example.com\",\n    \"timezone\": \"Africa/Cairo\",\n    \"password\": \"newpassword123\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/client/profile/update",
+              "host": ["{{base_url}}"],
+              "path": ["client", "profile", "update"]
+            }
+          }
+        },
+        {
+          "name": "Update Locale",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{api_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"locale\": \"ar\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/client/profile/updatelocale",
+              "host": ["{{base_url}}"],
+              "path": ["client", "profile", "updatelocale"]
+            }
+          }
+        },
+        {
+          "name": "Verify Email",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{api_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"verified_code\": \"1234\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/verify_email",
+              "host": ["{{base_url}}"],
+              "path": ["verify_email"]
+            }
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{api_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/logout",
+              "host": ["{{base_url}}"],
+              "path": ["logout"]
+            }
+          }
+        },
+        {
+          "name": "Delete Account",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{api_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/delete-account",
+              "host": ["{{base_url}}"],
+              "path": ["delete-account"]
+            }
+          }
+        },
+        {
+          "name": "Password - Send reset code",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"user@example.com\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/sent_token_to_email",
+              "host": ["{{base_url}}"],
+              "path": ["sent_token_to_email"]
+            }
+          }
+        },
+        {
+          "name": "Password - Change",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"token\": \"reset_token_from_email\",\n    \"password\": \"12345678\",\n    \"password_confirmation\": \"12345678\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/change_password",
+              "host": ["{{base_url}}"],
+              "path": ["change_password"]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "https://grinta.my-dev.art/api/v1",
+      "type": "string"
+    },
+    {
+      "key": "api_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "biometric_token",
+      "value": "",
+      "type": "string"
+    }
+  ]
+}

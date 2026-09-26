@@ -21,6 +21,8 @@ class Client extends Authenticatable
         'social_id',
         'locale',
         'timezone',
+        'biometric_enabled',
+        'biometric_token',
     ];
 
     const SEARCHFIELDS = [
@@ -32,6 +34,7 @@ class Client extends Authenticatable
         'password',
         'remember_token',
         'action',
+        'biometric_token',
     ];
 
     protected $appends = ['action'];

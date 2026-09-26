@@ -34,6 +34,8 @@ Route::post('google',       [AuthController::class, 'google']);
 Route::post('register',     [AuthController::class, 'register']);
 Route::post('logout',       [AuthController::class, 'logout'])->middleware('auth:api');
 Route::delete('delete-account', [AuthController::class, 'deleteAccount'])->middleware('auth:api');
+Route::post('biometric/toggle', [AuthController::class, 'toggleBiometric'])->middleware('auth:api');
+Route::post('biometric/login', [AuthController::class, 'biometricLogin']);
 Route::post('verify_email', [AuthController::class, 'verifiedEmail']);
 
 Route::middleware('auth:api')->group(function() {

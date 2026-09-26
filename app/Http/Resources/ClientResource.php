@@ -23,6 +23,7 @@ class ClientResource extends JsonResource
             'verified_code'=>$this->verified_code,
             'locale'=>$this->locale,
             'timezone'=>$this->timezone,
+            'biometric_enabled'=>(bool)$this->biometric_enabled,
             'created_at'=>$this->created_at,
             'updated_at'=>$this->updated_at,
         ];

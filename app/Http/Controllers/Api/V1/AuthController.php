@@ -146,7 +146,6 @@ class AuthController extends Controller
             $client = Client::query()->create([
                 'full_name'         => $fullName,
                 'email'             => $email,
-                'password'          => Hash::make(Str::random(40)),
                 'social_id'         => $socialId,
                 'fb_token'          => $request->input('fb_token'),
                 'verified_code'     => null,
@@ -260,7 +259,6 @@ class AuthController extends Controller
             $client = Client::query()->create([
                 'full_name'        => $fullName,
                 'email'            => $email,
-                'password'         => Hash::make(Str::random(40)),
                 'social_id'        => $socialId,
                 'fb_token'         => $request->input('fb_token'),
                 'verified_code'    => null,
@@ -280,6 +278,80 @@ class AuthController extends Controller
             'token'             => $token,
             'registered_client' => $isAlreadyRegistered,
             'client'            => $client,
+        ];
+
+        return $this->successResponse($response, 200);
+    }
+
+    public function toggleBiometric(Request $request): JsonResponse
+    {
+        $request->validate([
+            'enabled' => ['required', 'boolean'],
+        ]);
+
+        $client = Client::query()->findOrFail(auth()->user()->getAuthIdentifier());
+
+        if ($request->input('enabled')) {
+            $biometricToken = Str::random(60);
+            $client->update([
+                'biometric_enabled' => true,
+                'biometric_token'   => hash('sha256', $biometricToken),
+            ]);
+            return $this->successResponse([
+                'biometric_enabled' => true,
+                'biometric_token'   => $biometricToken,
+                'client'            => $client,
+            ], 200);
+        }
+
+        $client->update([
+            'biometric_enabled' => false,
+            'biometric_token'   => null,
+        ]);
+
+        return $this->successResponse([
+            'biometric_enabled' => false,
+            'client'            => $client,
+        ], 200);
+    }
+
+    public function biometricLogin(Request $request): JsonResponse
+    {
+        $rules = [
+            'biometric_token' => ['required', 'string'],
+            'fb_token'        => ['nullable'],
+            'locale'          => ['nullable'],
+        ];
+        $request->validate($rules);
+
+        $locale = in_array($request->input('locale', 'en'), ['en', 'ar']) ? $request->input('locale', 'en') : 'en';
+
+        $client = Client::query()
+            ->where('biometric_token', hash('sha256', $request->input('biometric_token')))
+            ->where('biometric_enabled', true)
+            ->first();
+
+        if (!$client) {
+            return $this->errorResponse('Invalid biometric token', 400);
+        }
+
+        // Rotate credentials: new api_token + new biometric_token (old stored token becomes invalid)
+        $token             = now() . Str::random(60);
+        $newBiometricToken = Str::random(60);
+        $updateData        = [
+            'api_token'       => $token,
+            'biometric_token' => hash('sha256', $newBiometricToken),
+            'locale'          => $locale,
+        ];
+        if (!empty($request->input('fb_token'))) {
+            $updateData['fb_token'] = $request->input('fb_token');
+        }
+        $client->update($updateData);
+
+        $response = [
+            'token'           => $token,
+            'biometric_token' => $newBiometricToken,
+            'client'          => $client,
         ];
 
         return $this->successResponse($response, 200);
