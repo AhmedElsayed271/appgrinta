@@ -26,7 +26,32 @@ class PostResource extends JsonResource
             'created_at'=>$this->created_at,
             'updated_at'=>$this->updated_at,
             'category'=> new CategoryResource($this->category),
-            'user'=> new UserResource($this->user)
+            'user'=> new UserResource($this->user),
+            'reactions'=> $this->reactionSummary($request)
+        ];
+    }
+
+    protected function reactionSummary($request): array
+    {
+        $reactions = $this->reactions ?? collect();
+        $counts = ['like' => 0, 'love' => 0, 'haha' => 0, 'wow' => 0, 'sad' => 0, 'angry' => 0];
+
+        foreach ($reactions as $reaction) {
+            $counts[$reaction->type] = ($counts[$reaction->type] ?? 0) + 1;
+        }
+
+        $clientId = $request->user()?->getAuthIdentifier();
+        $myReaction = $reactions->firstWhere('client_id', $clientId);
+
+        return [
+            'count' => $reactions->count(),
+            'like' => $counts['like'],
+            'love' => $counts['love'],
+            'haha' => $counts['haha'],
+            'wow' => $counts['wow'],
+            'sad' => $counts['sad'],
+            'angry' => $counts['angry'],
+            'my_reaction' => $myReaction?->type ?? null,
         ];
     }
 }

@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "appgrinta",
-    "description": "Grinta API - Auto-saves api_token & biometric_token after login/social/google/biometric-login into collection variables. base_url = server + /api/v1",
+    "description": "Grinta API - Auto-saves api_token & biometric_token after login/social/google/biometric-login into collection variables. base_url = server + /api/v1. Default base_url is the local server (http://localhost:8000/api/v1); switch to the Production environment for https://appgrinta.com.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -406,12 +406,556 @@
           }
         }
       ]
+    },
+    {
+      "name": "posts",
+      "description": "Posts list & details. Every response contains data.reactions (count per type + my_reaction). All requests need Bearer {{api_token}}.",
+      "item": [
+        {
+          "name": "Get Posts (list)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{api_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/posts",
+              "host": ["{{base_url}}"],
+              "path": ["posts"]
+            }
+          }
+        },
+        {
+          "name": "Get Posts (all)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{api_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/posts/all",
+              "host": ["{{base_url}}"],
+              "path": ["posts", "all"]
+            }
+          }
+        },
+        {
+          "name": "Get Posts (alias allPosts)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{api_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/allPosts",
+              "host": ["{{base_url}}"],
+              "path": ["allPosts"]
+            }
+          }
+        },
+        {
+          "name": "Get Posts (sendPosts)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{api_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/posts-all",
+              "host": ["{{base_url}}"],
+              "path": ["posts-all"]
+            }
+          }
+        },
+        {
+          "name": "Get Featured Posts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{api_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/featuredPosts",
+              "host": ["{{base_url}}"],
+              "path": ["featuredPosts"]
+            }
+          }
+        },
+        {
+          "name": "Search Posts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{api_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/search/posts?name=",
+              "host": ["{{base_url}}"],
+              "path": ["search", "posts"],
+              "query": [
+                {
+                  "key": "name",
+                  "value": ""
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Post Details",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{api_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/posts/{{post_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["posts", "{{post_id}}"]
+            }
+          }
+        },
+        {
+          "name": "Competition Posts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{api_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/competitions/{{post_id}}/posts",
+              "host": ["{{base_url}}"],
+              "path": ["competitions", "{{post_id}}", "posts"]
+            }
+          }
+        },
+        {
+          "name": "Team Posts",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{api_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/teams/{{post_id}}/posts",
+              "host": ["{{base_url}}"],
+              "path": ["teams", "{{post_id}}", "posts"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "reactions",
+      "description": "React to a post: first tap adds the type, tapping the SAME type again removes it (toggle), tapping a DIFFERENT type switches it. One reaction per user per post. Needs Bearer {{api_token}}.",
+      "item": [
+        {
+          "name": "React - like",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{api_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"type\": \"like\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/posts/{{post_id}}/reactions",
+              "host": ["{{base_url}}"],
+              "path": ["posts", "{{post_id}}", "reactions"]
+            }
+          }
+        },
+        {
+          "name": "React - love",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{api_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"type\": \"love\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/posts/{{post_id}}/reactions",
+              "host": ["{{base_url}}"],
+              "path": ["posts", "{{post_id}}", "reactions"]
+            }
+          }
+        },
+        {
+          "name": "React - haha",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{api_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"type\": \"haha\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/posts/{{post_id}}/reactions",
+              "host": ["{{base_url}}"],
+              "path": ["posts", "{{post_id}}", "reactions"]
+            }
+          }
+        },
+        {
+          "name": "React - wow",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{api_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"type\": \"wow\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/posts/{{post_id}}/reactions",
+              "host": ["{{base_url}}"],
+              "path": ["posts", "{{post_id}}", "reactions"]
+            }
+          }
+        },
+        {
+          "name": "React - sad",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{api_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"type\": \"sad\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/posts/{{post_id}}/reactions",
+              "host": ["{{base_url}}"],
+              "path": ["posts", "{{post_id}}", "reactions"]
+            }
+          }
+        },
+        {
+          "name": "React - angry",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{api_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"type\": \"angry\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/posts/{{post_id}}/reactions",
+              "host": ["{{base_url}}"],
+              "path": ["posts", "{{post_id}}", "reactions"]
+            }
+          }
+        },
+        {
+          "name": "Remove Reaction (same type again)",
+          "description": "Sends the same type you already reacted with to remove it. Example removes a previous 'like'.",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{api_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"type\": \"like\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/posts/{{post_id}}/reactions",
+              "host": ["{{base_url}}"],
+              "path": ["posts", "{{post_id}}", "reactions"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "notifications",
+      "description": "In-app notification bell (Facebook-style): list, unread red-dot count, mark read, mark-all read, delete. All requests need Bearer {{api_token}}. The text language follows ?locale=en|ar like the rest of the app.",
+      "item": [
+        {
+          "name": "Get Notifications (list)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{api_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/notifications?locale=en",
+              "host": ["{{base_url}}"],
+              "path": ["notifications"],
+              "query": [
+                {
+                  "key": "locale",
+                  "value": "en"
+                },
+                {
+                  "key": "type",
+                  "value": "",
+                  "description": "Optional filter: goal | match_status | reminder | announcement | post | team | league | system"
+                },
+                {
+                  "key": "per_page",
+                  "value": "15",
+                  "description": "Optional page size (2-50)"
+                }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Notifications - Unread Count",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{api_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/notifications/unread-count",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "unread-count"]
+            }
+          }
+        },
+        {
+          "name": "Mark Notifications as Read",
+          "description": "Send id for one notification or ids for many: {\"ids\": [1,2,3]}.",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{api_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"id\": 1\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/notifications/read",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "read"]
+            }
+          }
+        },
+        {
+          "name": "Mark All Notifications Read",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{api_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/notifications/read-all",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "read-all"]
+            }
+          }
+        },
+        {
+          "name": "Delete Notification",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{api_token}}",
+                  "type": "string"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/notifications/{{notification_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "{{notification_id}}"]
+            }
+          }
+        }
+      ]
     }
   ],
   "variable": [
     {
       "key": "base_url",
-      "value": "https://grinta.my-dev.art/api/v1",
+      "value": "http://localhost:8000/api/v1",
       "type": "string"
     },
     {
@@ -422,6 +966,16 @@
     {
       "key": "biometric_token",
       "value": "",
+      "type": "string"
+    },
+    {
+      "key": "post_id",
+      "value": "1",
+      "type": "string"
+    },
+    {
+      "key": "notification_id",
+      "value": "1",
       "type": "string"
     }
   ]

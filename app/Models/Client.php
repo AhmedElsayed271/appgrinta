@@ -164,4 +164,9 @@ class Client extends Authenticatable
     {
         return $this->belongsToMany(\App\Models\Competition::class, 'favourite_competition');
     }
+
+    public function postReactions(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\PostReaction::class, 'client_id');
+    }
 }

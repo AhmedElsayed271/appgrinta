@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\CategoriesController;
 use App\Http\Controllers\Api\V1\ClientController;
+use App\Http\Controllers\Api\V1\ClientNotificationsController;
 use App\Http\Controllers\Api\V1\CompetitionsController;
 use App\Http\Controllers\Api\V1\CountriesController;
 use App\Http\Controllers\Api\V1\GuestController;
@@ -48,6 +49,14 @@ Route::middleware('auth:api')->group(function() {
     Route::get('posts',         [PostsController::class, 'index']);
     Route::get('posts/all',     [PostsController::class, 'allposts']);
     Route::get('posts/{post}',  [PostsController::class, 'show']);
+    Route::post('posts/{post}/reactions', [PostsController::class, 'react']);
+
+    // Notifications (in-app bell)
+    Route::get('notifications',                     [ClientNotificationsController::class, 'index']);
+    Route::get('notifications/unread-count',        [ClientNotificationsController::class, 'unreadCount']);
+    Route::post('notifications/read',               [ClientNotificationsController::class, 'read']);
+    Route::post('notifications/read-all',           [ClientNotificationsController::class, 'readAll']);
+    Route::delete('notifications/{notification}',   [ClientNotificationsController::class, 'destroy']);
     Route::get('posts-all',     [PostsController::class, 'sendPosts']);
     Route::get('featuredPosts', [PostsController::class, 'featuredPosts']);
     Route::get('allPosts',      [PostsController::class, 'allposts']);

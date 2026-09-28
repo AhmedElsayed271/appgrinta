@@ -11,6 +11,7 @@ use App\Http\Resources\MatchResource;
 use App\Traits\NotificationOfMatchesTrait;
 use Illuminate\Support\Facades\DB;
 use App\Models\Client;
+use App\Services\NotificationPersistence;
 use Illuminate\Support\Facades\Log;
 
 class SendReminderBefore45Minutes extends Command
@@ -169,6 +170,17 @@ class SendReminderBefore45Minutes extends Command
                 'notify' => $notifyPayload,
             ]);
         }
+
+        // ── Persist the reminder in the in-app bell ──────────────────────
+        (new NotificationPersistence())->persist($clientIds, [
+            'title_ar' => "{$match->home_team_name_ar} ضد {$match->away_team_name_ar}",
+            'title_en' => "{$match->home_team_name_en} vs {$match->away_team_name_en}",
+            'body_ar'  => __('site.notification.match_starting_after_45_min', [], 'ar'),
+            'body_en'  => __('site.notification.match_starting_after_45_min', [], 'en'),
+            'image'    => $this->getMergedImage($match->home_image, $match->away_image),
+            'type'     => 'reminder',
+            'payload'  => $notifyPayload,
+        ]);
     }
 
     protected function prepareMatchData($match)

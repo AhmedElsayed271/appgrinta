@@ -6,32 +6,77 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\PostPaginationResource;
 use App\Http\Resources\PostResource;
 use App\Models\Post;
+use App\Models\PostReaction;
 use App\Traits\ApiResponser;
 use App\Traits\TablesQuery;
 use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
 
 class PostsController extends Controller
 {
     use ApiResponser,TablesQuery;
     public function index()//: \Illuminate\Http\JsonResponse
     {
-        return $this->successResponse(PostPaginationResource::make($this->showAllPagination(Post::query()->with(['category','user'])->get())),200);
+        return $this->successResponse(PostPaginationResource::make($this->showAllPagination(Post::query()->with(['category','user','reactions'])->get())),200);
 
     }
     public function allposts()
     {
-        return $this->successResponse(PostPaginationResource::make($this->showAllPagination(Post::query()->with(['category','user'])->get())),200);
+        return $this->successResponse(PostPaginationResource::make($this->showAllPagination(Post::query()->with(['category','user','reactions'])->get())),200);
 
     }
 
     public function sendPosts()
     {
-        $data = $this->showAllNew(Post::query()->with(['category','user'])->get());
+        $data = $this->showAllNew(Post::query()->with(['category','user','reactions'])->get());
         return $this->successResponse(PostResource::collection($data),200);
     }
     public function show(Post $post): \Illuminate\Http\JsonResponse
     {
-        return $this->successResponse(new PostResource($post),200);
+        return $this->successResponse(new PostResource($post->load(['reactions'])),200);
+    }
+
+    public function react(Request $request, Post $post): \Illuminate\Http\JsonResponse
+    {
+        $request->validate([
+            'type' => ['required', Rule::in(PostReaction::TYPES)],
+        ]);
+
+        $type     = $request->input('type');
+        $clientId = $request->user()->getAuthIdentifier();
+
+        $reaction = PostReaction::where('post_id', $post->id)
+            ->where('client_id', $clientId)
+            ->first();
+
+        if ($reaction) {
+            if ($reaction->type === $type) {
+                $reaction->delete();
+                $action      = 'removed';
+                $currentType = null;
+            } else {
+                $reaction->update(['type' => $type]);
+                $action      = 'updated';
+                $currentType = $type;
+            }
+        } else {
+            PostReaction::create([
+                'post_id'   => $post->id,
+                'client_id' => $clientId,
+                'type'      => $type,
+            ]);
+            $action      = 'added';
+            $currentType = $type;
+        }
+
+        $post->load('reactions');
+
+        return $this->successResponse([
+            'post_id'   => (int)$post->id,
+            'action'    => $action,
+            'type'      => $currentType,
+            'reactions' => (new PostResource($post))->toArray($request)['reactions'],
+        ], 200);
     }
 
     public function updatePostData(Request $request){

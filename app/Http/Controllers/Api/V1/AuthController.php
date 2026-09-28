@@ -165,6 +165,13 @@ class AuthController extends Controller
         return $this->successResponse($response, 200);
     }
 
+    private function googleClientIds(): array
+    {
+        $raw = (string) config('services.google.client_id', '');
+
+        return array_values(array_filter(array_map('trim', explode(',', $raw))));
+    }
+
     private function fetchGoogleData(?string $token): ?array
     {
         if (!$token) {
@@ -172,18 +179,20 @@ class AuthController extends Controller
         }
 
         // 1) Try validating the token as a Google id_token (JWT signed by Google)
-        try {
-            $client = new GoogleClient(['client_id' => config('services.google.client_id')]);
-            $payload = $client->verifyIdToken($token);
-            if (is_array($payload) && isset($payload['sub'])) {
-                return [
-                    'sub'   => $payload['sub'],
-                    'email' => $payload['email'] ?? null,
-                    'name'  => $payload['name'] ?? null,
-                ];
+        foreach ($this->googleClientIds() as $clientId) {
+            try {
+                $client  = new GoogleClient(['client_id' => $clientId]);
+                $payload = $client->verifyIdToken($token);
+                if (is_array($payload) && isset($payload['sub'])) {
+                    return [
+                        'sub'   => $payload['sub'],
+                        'email' => $payload['email'] ?? null,
+                        'name'  => $payload['name'] ?? null,
+                    ];
+                }
+            } catch (Exception $e) {
+                // not an id_token for this client -> try the next one
             }
-        } catch (Exception $e) {
-            // not an id_token -> try the access-token path below
         }
 
         // 2) Treat it as a Google access_token and ask Google for the profile
@@ -217,11 +226,17 @@ class AuthController extends Controller
             $request->locale = 'en';
         }
 
-        try {
-            $client = new GoogleClient(['client_id' => config('services.google.client_id')]);
-            $payload = $client->verifyIdToken($request->input('id_token'));
-        } catch (Exception $e) {
-            return $this->errorResponse($e->getMessage(), 400);
+        $payload = null;
+        foreach ($this->googleClientIds() as $clientId) {
+            try {
+                $client  = new GoogleClient(['client_id' => $clientId]);
+                $payload = $client->verifyIdToken($request->input('id_token'));
+                if (is_array($payload) && isset($payload['sub'])) {
+                    break;
+                }
+            } catch (Exception $e) {
+                $payload = null;
+            }
         }
 
         if (!$payload) {

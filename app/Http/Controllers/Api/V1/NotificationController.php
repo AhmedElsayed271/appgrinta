@@ -17,6 +17,7 @@ use App\Http\Resources\CompetitionResource;
 use App\Models\Competition;
 use App\Models\Guest;
 use App\Models\Team;
+use App\Services\NotificationPersistence;
 
 class NotificationController extends Controller
 {
@@ -83,6 +84,17 @@ class NotificationController extends Controller
         return $flat;
     }
 
+    private function persistForAll(array $notifyData): void
+    {
+        $tokens = array_values(array_unique(array_merge($this->englishTokens(), $this->arabicTokens())));
+
+        if (empty($tokens)) {
+            return;
+        }
+
+        (new NotificationPersistence())->persistFromTokens($tokens, $notifyData);
+    }
+
     // ─── Post Notification ──────────────────────────────────────────────────────
 
     public function post()
@@ -115,6 +127,16 @@ class NotificationController extends Controller
             'body'   => strip_tags($request->input('ar.description')),
             'image'  => $image,
             'notify' => $notify,
+        ]);
+
+        $this->persistForAll([
+            'title_ar' => $request->input('ar.name'),
+            'title_en' => $request->input('en.name'),
+            'body_ar'  => strip_tags($request->input('ar.description')),
+            'body_en'  => strip_tags($request->input('en.description')),
+            'image'    => $image,
+            'type'     => 'post',
+            'payload'  => $notify,
         ]);
 
         session()->flash('success', __('site.successfully.added'));
@@ -159,6 +181,16 @@ class NotificationController extends Controller
             'notify' => $notify,
         ]);
 
+        $this->persistForAll([
+            'title_ar' => $request->input('ar.name'),
+            'title_en' => $request->input('en.name'),
+            'body_ar'  => strip_tags($request->input('ar.description')),
+            'body_en'  => strip_tags($request->input('en.description')),
+            'image'    => $image,
+            'type'     => 'announcement',
+            'payload'  => $notify,
+        ]);
+
         session()->flash('success', __('site.successfully.added'));
         return redirect()->back();
     }
@@ -193,6 +225,16 @@ class NotificationController extends Controller
             'body'   => strip_tags($request->input('ar.description')),
             'image'  => $image,
             'notify' => $notify,
+        ]);
+
+        $this->persistForAll([
+            'title_ar' => $request->input('ar.name'),
+            'title_en' => $request->input('en.name'),
+            'body_ar'  => strip_tags($request->input('ar.description')),
+            'body_en'  => strip_tags($request->input('en.description')),
+            'image'    => $image,
+            'type'     => 'announcement',
+            'payload'  => $notify,
         ]);
 
         session()->flash('success', __('site.successfully.added'));
@@ -245,6 +287,16 @@ class NotificationController extends Controller
             'notify' => $notifyPayloadAr,
         ]);
 
+        $this->persistForAll([
+            'title_ar' => $request->input('ar.name'),
+            'title_en' => $request->input('en.name'),
+            'body_ar'  => strip_tags($request->input('ar.description')),
+            'body_en'  => strip_tags($request->input('en.description')),
+            'image'    => $image,
+            'type'     => 'team',
+            'payload'  => $notifyPayload,
+        ]);
+
         session()->flash('success', __('site.successfully.added'));
         return redirect()->back();
     }
@@ -287,6 +339,19 @@ class NotificationController extends Controller
             'notify' => $this->flattenNotify([
                 'competition_id' => $request->input('competition_id'),
                 'leg_ar'         => $competition->translate('ar')->name,
+                'screen'         => $request->input('screen'),
+            ]),
+        ]);
+
+        $this->persistForAll([
+            'title_ar' => $request->input('ar.name'),
+            'title_en' => $request->input('en.name'),
+            'body_ar'  => strip_tags($request->input('ar.description')),
+            'body_en'  => strip_tags($request->input('en.description')),
+            'image'    => $image,
+            'type'     => 'league',
+            'payload'  => $this->flattenNotify([
+                'competition_id' => $request->input('competition_id'),
                 'screen'         => $request->input('screen'),
             ]),
         ]);

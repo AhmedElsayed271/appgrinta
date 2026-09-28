@@ -10,6 +10,7 @@ use App\Models\Setting;
 use App\Models\testtest;
 use App\Models\MatchEvent;
 use App\Models\TeamTranslation;
+use App\Services\NotificationPersistence;
 use Illuminate\Console\Command;
 use App\Models\PlayerTranslation;
 use Illuminate\Support\Facades\DB;
@@ -397,5 +398,16 @@ class UpdateMatchesEvents extends Command
                 ]);
             }
         }
+
+        // ── Persist the same event in the in-app bell ────────────────────
+        (new NotificationPersistence())->persist($clientsNotified, [
+            'title_ar' => $matches[0]['home_team_name_ar'] . ' - ' . $matches[0]['away_team_name_ar'],
+            'title_en' => $matches[0]['home_team_name_en'] . ' - ' . $matches[0]['away_team_name_en'],
+            'body_ar'  => $NotificationBodyAr,
+            'body_en'  => $NotificationBodyEn,
+            'image'    => $teamNotif->image_path ?? null,
+            'type'     => in_array($type, ['goal', 'missed penalty', 'penalty confirmed', 'goal cancelled', 'var'], true) ? 'goal' : 'match_status',
+            'payload'  => $notifyPayload,
+        ]);
     }
 }

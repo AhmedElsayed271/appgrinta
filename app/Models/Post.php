@@ -91,4 +91,9 @@ class Post extends Model
         return $this->belongsToMany(\App\Models\Team::class,'post_team');
     }
 
+    public function reactions(): \Illuminate\Database\Eloquent\Relations\HasMany
+    {
+        return $this->hasMany(\App\Models\PostReaction::class, 'post_id');
+    }
+
 }

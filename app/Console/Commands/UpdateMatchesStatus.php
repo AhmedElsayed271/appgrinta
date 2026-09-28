@@ -6,6 +6,7 @@ use App\Models\Team;
 use App\Models\Matche;
 use App\Traits\Notify;
 use App\Models\Setting;
+use App\Services\NotificationPersistence;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -240,5 +241,16 @@ class UpdateMatchesStatus extends Command
                 ]);
             }
         }
+
+        // ── Persist the same notification in the in-app bell ─────────────
+        (new NotificationPersistence())->persist($clientsNotified, [
+            'title_ar' => $display['home_team_name_ar'] . ' - ' . $display['away_team_name_ar'],
+            'title_en' => $display['home_team_name_en'] . ' - ' . $display['away_team_name_en'],
+            'body_ar'  => $bodyAr,
+            'body_en'  => $bodyEn,
+            'image'    => $display['home_image'] ?? null,
+            'type'     => 'match_status',
+            'payload'  => $notifyPayload,
+        ]);
     }
 }
