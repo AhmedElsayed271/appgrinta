@@ -35,6 +35,15 @@ class FirebaseService
     {
         $accessToken = $this->getAccessToken();
 
+        $tokens = array_values(array_unique(array_filter($tokens, function ($token) {
+            return is_string($token) && $token !== '';
+        })));
+
+        if (empty($tokens)) {
+            Log::warning('FCM: sendNotification called with empty token list');
+            return;
+        }
+
         $notification = [
             'title' => $data['title'],
             'body'  => $data['body'],
@@ -70,32 +79,63 @@ class FirebaseService
             'data'         => $notify,
         ]);
 
-        foreach ($tokens as $token) {
-            $payload = [
-                'message' => [
-                    'token'        => $token,
-                    'notification' => $notification,
-                    'data'         => $notify,
-                    'android'      => [
-                        'priority'     => 'high',
-                        'notification' => [
-                            'sound'      => 'default',
-                            'channel_id' => 'default',
-                        ],
-                    ],
-                    'apns' => [
-                        'payload' => [
-                            'aps' => [
-                                'sound' => 'default',
-                                'badge' => 1,
-                            ],
-                        ],
-                    ],
-                ],
-            ];
+        // Send in parallel (bounded chunks) instead of one-by-one. Sending
+        // sequentially took ~1s per token which risks PHP/FPM timeouts on large
+        // token lists, causing notifications to never be delivered.
+        $results = [];
 
-            $response = Http::withToken($accessToken)
-                ->post($this->fcmUrl, $payload);
+        foreach (array_chunk($tokens, 100) as $chunk) {
+            try {
+                $responses = Http::pool(function ($pool) use ($chunk, $accessToken, $notification, $notify) {
+                    foreach ($chunk as $index => $token) {
+                        $pool->as((string) $index)
+                            ->withToken($accessToken)
+                            ->timeout(30)
+                            ->post($this->fcmUrl, [
+                                'message' => [
+                                    'token'        => $token,
+                                    'notification' => $notification,
+                                    'data'         => $notify,
+                                    'android'      => [
+                                        'priority'     => 'high',
+                                        'notification' => [
+                                            'sound'      => 'default',
+                                            'channel_id' => 'default',
+                                        ],
+                                    ],
+                                    'apns' => [
+                                        'payload' => [
+                                            'aps' => [
+                                                'sound' => 'default',
+                                                'badge' => 1,
+                                            ],
+                                        ],
+                                    ],
+                                ],
+                            ]);
+                    }
+                });
+            } catch (\Throwable $e) {
+                Log::error('FCM pool failed', ['message' => $e->getMessage()]);
+                continue;
+            }
+
+            foreach ($chunk as $index => $token) {
+                $results[$token] = $responses[$index] ?? null;
+            }
+        }
+
+        foreach ($results as $token => $response) {
+            if (! $response instanceof \Illuminate\Http\Client\Response) {
+                Log::error('FCM send error', [
+                    'token' => substr($token, 0, 30) . '...',
+                    'error' => is_object($response)
+                        ? get_class($response) . ': ' . $response->getMessage()
+                        : (string) $response,
+                ]);
+
+                continue;
+            }
 
             if ($response->failed()) {
                 $body      = $response->json();

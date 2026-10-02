@@ -17,23 +17,26 @@ class PostsController extends Controller
     use ApiResponser,TablesQuery;
     public function index()//: \Illuminate\Http\JsonResponse
     {
-        return $this->successResponse(PostPaginationResource::make($this->showAllPagination(Post::query()->with(['category','user','reactions'])->get())),200);
+        return $this->successResponse(PostPaginationResource::make($this->showAllPagination(Post::query()->published()->with(['category','user'])->get())),200); // [reactions-off]
 
     }
     public function allposts()
     {
-        return $this->successResponse(PostPaginationResource::make($this->showAllPagination(Post::query()->with(['category','user','reactions'])->get())),200);
+        return $this->successResponse(PostPaginationResource::make($this->showAllPagination(Post::query()->published()->with(['category','user'])->get())),200); // [reactions-off]
 
     }
 
     public function sendPosts()
     {
-        $data = $this->showAllNew(Post::query()->with(['category','user','reactions'])->get());
+        $data = $this->showAllNew(Post::query()->published()->with(['category','user'])->get()); // [reactions-off]
         return $this->successResponse(PostResource::collection($data),200);
     }
     public function show(Post $post): \Illuminate\Http\JsonResponse
     {
-        return $this->successResponse(new PostResource($post->load(['reactions'])),200);
+        if ($post->isScheduled()) {
+            return $this->errorResponse('Post not found', 404);
+        }
+        return $this->successResponse(new PostResource($post),200); // [reactions-off] removed load('reactions')
     }
 
     public function react(Request $request, Post $post): \Illuminate\Http\JsonResponse
@@ -75,7 +78,7 @@ class PostsController extends Controller
             'post_id'   => (int)$post->id,
             'action'    => $action,
             'type'      => $currentType,
-            'reactions' => (new PostResource($post))->toArray($request)['reactions'],
+            // 'reactions' => (new PostResource($post))->toArray($request)['reactions'], // [reactions-off]
         ], 200);
     }
 
@@ -92,11 +95,11 @@ class PostsController extends Controller
     }
     public function searchPosts(Request $request)
     {
-        return $this->successResponse(PostResource::collection($this->search(Post::query(), Post::SEARCHFIELDS, $request->name)->get())->collection, 200);
+        return $this->successResponse(PostResource::collection($this->search(Post::query()->published(), Post::SEARCHFIELDS, $request->name)->get())->collection, 200);
     }
 
     public function featuredPosts(){
-        return $this->successResponse(PostPaginationResource::make($this->showAllPagination(Post::query()->where('featured',1)->orderByDesc('id')->with(['category','user'])->get())),200);
+        return $this->successResponse(PostPaginationResource::make($this->showAllPagination(Post::query()->published()->where('featured',1)->orderByDesc('id')->with(['category','user'])->get())),200);
 
     }
 }

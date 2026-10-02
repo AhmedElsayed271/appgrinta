@@ -21,7 +21,16 @@
                     @foreach (LaravelLocalization::getSupportedLocales() as $locale => $properties)
                         <div class="form-group">
                             <label for="{{$locale}}_name">@lang('site.'.$locale.'.name')</label>
-                            <input type="text" name="{{$locale}}[name]" class="form-control @error($locale.'.name') is-invalid @enderror" id="{{$locale}}_name" value="{{$post->translate($locale)->name}}" >
+                            <div class="input-group">
+                                <input type="text" name="{{$locale}}[name]" class="form-control @error($locale.'.name') is-invalid @enderror" id="{{$locale}}_name" value="{{$post->translate($locale)->name}}" dir="{{ in_array($locale, ['ar','he','fa','ur']) ? 'rtl' : 'ltr' }}" >
+                                @if($locale === 'en')
+                                    <div class="input-group-append">
+                                        <button type="button" class="btn btn-primary btn-translate" data-source="ar" data-target="en" data-field="name">
+                                            ترجمة
+                                        </button>
+                                    </div>
+                                @endif
+                            </div>
                             @error($locale.'.name')
                             <div class="invalid-feedback" role="alert">
                                 <strong>{{ $message }}</strong>
@@ -30,9 +39,14 @@
                         </div>
                         <div class="form-group">
                             <label for="{{$locale}}_description">{{__('site.'.$locale.'.description')}}</label>
-                            <textarea name="{{$locale}}[description]" id="{{$locale}}_description">
+                            <textarea name="{{$locale}}[description]" id="{{$locale}}_description" dir="{{ in_array($locale, ['ar','he','fa','ur']) ? 'rtl' : 'ltr' }}">
                                 {{$post->translate($locale)->description}}
                             </textarea>
+                            @if($locale === 'en')
+                                <button type="button" class="btn btn-primary btn-sm mt-2 btn-translate" data-source="ar" data-target="en" data-field="description">
+                                    ترجمة
+                                </button>
+                            @endif
                             @error($locale.'.description')
                             <div class="invalid-feedback" role="alert">
                                 <strong>{{ $message }}</strong>
@@ -141,6 +155,19 @@
                             featured
                         </label>
                     </div>
+
+                    <div class="form-group row mt-4">
+                        <label for="published_at" class="col-form-label col-lg-3 col-sm-12">{{ __('site.post.publish_at') }}</label>
+                        <div class="col-lg-4 col-md-9 col-sm-12">
+                            <input type="datetime-local" name="published_at" id="published_at" class="form-control" value="{{ old('published_at', $post->published_at ? $post->published_at->copy()->timezone('Africa/Cairo')->format('Y-m-d\TH:i') : '') }}">
+                            <span class="text-muted font-size-sm">{{ __('site.post.publish_at_hint') }}</span>
+                            @error('published_at')
+                            <div class="invalid-feedback" role="alert">
+                                <strong>{{ $message }}</strong>
+                            </div>
+                            @enderror
+                        </div>
+                    </div>
                 </div>
                 <div class="card-footer">
                     <button type="submit" class="btn btn-success font-weight-bold mr-2">{{__('site.operation.edit')}}</button>
@@ -246,6 +273,9 @@
                         }
                     }
                 });
+                $('#{{$locale}}_description').next('.note-editor').find('.note-editable')
+                    .attr('dir', '{{ in_array($locale, ['ar','he','fa','ur']) ? 'rtl' : 'ltr' }}')
+                    .css('text-align', '{{ in_array($locale, ['ar','he','fa','ur']) ? 'right' : 'left' }}');
                 @endforeach
             }
 
@@ -260,6 +290,53 @@
         jQuery(document).ready(function() {
             KTSelect2.init();
             KTSummernoteDemo    .init();
+
+            $('.btn-translate').on('click', function () {
+                var source = $(this).data('source');
+                var target = $(this).data('target');
+                var field  = $(this).data('field');
+                var isHtml = field === 'description';
+                var $btn   = $(this);
+
+                var text = isHtml
+                    ? $('#' + source + '_' + field).summernote('code')
+                    : $('#' + source + '_' + field).val();
+
+                if (!text || (isHtml && text === '<p><br></p>')) {
+                    alert('اكتب المحتوى بالعربية أولاً');
+                    return;
+                }
+
+                $btn.prop('disabled', true).text('...');
+
+                $.ajax({
+                    url: '{{route('dashboard.translate')}}',
+                    type: 'POST',
+                    data: {
+                        _token: '{{csrf_token()}}',
+                        text: text,
+                        source: source,
+                        target: target
+                    },
+                    success: function (resp) {
+                        if (resp.success) {
+                            if (isHtml) {
+                                $('#' + target + '_' + field).summernote('code', resp.translation);
+                            } else {
+                                $('#' + target + '_' + field).val(resp.translation);
+                            }
+                        } else {
+                            alert(resp.message || 'فشلت الترجمة');
+                        }
+                    },
+                    error: function () {
+                        alert('حدث خطأ أثناء الترجمة');
+                    },
+                    complete: function () {
+                        $btn.prop('disabled', false).text('ترجمة');
+                    }
+                });
+            });
         });
 
         $(document).ready(function () {
@@ -377,9 +454,9 @@
         }
         function deleteFile(src) {
             $.ajax({
-                data: {src : src},
+                data: {src : src, _token : "{{csrf_token()}}"},
                 type: "POST",
-                url: "{{route('dashboard.ckeditor.delete',['_token' => csrf_token() ])}}",
+                url: "{{route('dashboard.ckeditor.delete')}}",
                 cache: false,
                 success: function(resp) {
                     console.log(resp);
@@ -389,10 +466,11 @@
         function sendFile(file,that) {
             data = new FormData();
             data.append("upload", file);
+            data.append("_token", "{{csrf_token()}}");
             $.ajax({
                 data: data,
                 type: "POST",
-                url: "{{route('dashboard.ckeditor.upload',['_token' => csrf_token() ])}}",
+                url: "{{route('dashboard.ckeditor.upload')}}",
                 cache: false,
                 contentType: false,
                 processData: false,

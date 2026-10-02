@@ -51,7 +51,12 @@ return [
         'name'=>'اسم المنشور',
         'category'=>'القسم',
         'author' => 'الكاتب',
-        'parent_id' => 'اسم الفئة'
+        'parent_id' => 'اسم الفئة',
+        'publish_at' => 'موعد النشر (اختياري)',
+        'publish_at_col' => 'موعد النشر',
+        'publish_at_hint' => 'اتركه فارغاً للنشر فوراً - التوقيت بتوقيت مصر',
+        'published' => 'منشور',
+        'scheduled' => 'مجدول'
     ],
     'competition'=>[
         'show'=>'البطولات',

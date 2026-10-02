@@ -48,6 +48,13 @@ return [
         'page_description'=>'Show All Posts',
         'name'=>'Post \'s Name',
         'category'=>'Category',
+        'author' => 'Author',
+        'parent_id' => 'Parent',
+        'publish_at' => 'Publish at (optional)',
+        'publish_at_col' => 'Publish at',
+        'publish_at_hint' => 'Leave empty to publish immediately - time in Egypt timezone',
+        'published' => 'Published',
+        'scheduled' => 'Scheduled',
     ],
     'competition'=>[
         'show'=>'competitions',

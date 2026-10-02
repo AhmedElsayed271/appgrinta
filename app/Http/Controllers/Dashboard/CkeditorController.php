@@ -37,8 +37,12 @@ class CkeditorController extends Controller
     public function delete(Request $request){
         if ($request->input('src')){
             $src=$request->input('src');
-            Storage::disk('public')->delete(str_replace(url()->to('/storage'), '', $src));
-            return str_replace(url()->to('/storage'), '', $src);
+            $path=parse_url($src, PHP_URL_PATH);
+            if ($path !== null && strpos($path,'/storage') === 0){
+                $path=substr($path,strlen('/storage'));
+            }
+            Storage::disk('public')->delete(ltrim($path,'/'));
+            return ltrim($path,'/');
         }
     }
 }

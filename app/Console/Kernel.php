@@ -163,6 +163,13 @@ class Kernel extends ConsoleKernel
         $schedule->command('notification:static')
             ->dailyAt('9:00')
             ->appendOutputTo(storage_path('logs/static_reminder.log'));
+
+        // Sends the push notification for scheduled posts once their publish time is due
+        $schedule->command('posts:publish-scheduled')
+            ->everyMinute()
+            ->withoutOverlapping(5)
+            ->runInBackground()
+            ->appendOutputTo(storage_path('logs/publish_scheduled_posts.log'));
     }
 
 

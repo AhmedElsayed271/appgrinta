@@ -27,7 +27,7 @@ class PostResource extends JsonResource
             'updated_at'=>$this->updated_at,
             'category'=> new CategoryResource($this->category),
             'user'=> new UserResource($this->user),
-            'reactions'=> $this->reactionSummary($request)
+            // 'reactions'=> $this->reactionSummary($request) // [reactions-off]
         ];
     }
 

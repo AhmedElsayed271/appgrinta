@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Models\Competition;
 use App\Models\Post;
 use App\Models\Team;
+use App\Services\PostNotificationService;
 use App\Traits\CustomResponser;
 use App\Traits\Notify;
 use Illuminate\Contracts\Foundation\Application;
@@ -84,6 +85,7 @@ class PostsController extends Controller
             'parent_id'      => ['exists:categories,id'],
             'competitions.*' => ['exists:competitions,id'],
             'teams.*'        => ['exists:teams,id'],
+            'published_at'   => ['nullable', 'date'],
 //            'youtube_link' => ['nullable'],
         ];
 
@@ -92,6 +94,7 @@ class PostsController extends Controller
         $image=$request->file('image');
         $request_data['category_id']=$request->input('category_id')??$request->input('parent_id');
         $request_data['user_id']=auth()->user()->getAuthIdentifier();
+        $request_data['published_at']=$this->parsePublishedAt($request);
         if(isset($request->featured) && $request->featured == "on"){
             $request_data['featured'] = 1;
         }
@@ -109,7 +112,7 @@ class PostsController extends Controller
         }
 
         // ── Auto Notification ─────────────────────────────────────────────────────
-        $this->sendPostNotification($post);
+        $this->notifyIfDue($post);
 
         session()->flash('success', __('site.successfully.added'));
         return redirect()->route('dashboard.posts.index');
@@ -164,9 +167,11 @@ class PostsController extends Controller
         $rules+=['parent_id'=>['exists:categories,id']];
         $rules+=['teams.*'=>['exists:teams,id']];
         $rules+=['competitions.*'=>['exists:competitions,id']];
+        $rules+=['published_at'=>['nullable','date']];
         $request->validate($rules);
         $request_data=$request->except(['has_image','image']);
         $request_data['category_id']=$request->input('category_id')??$request->input('parent_id');
+        $request_data['published_at']=$this->parsePublishedAt($request);
         //$request_data['user_id']=auth()->user()->getAuthIdentifier();
         $image=$request->file('image');
         if(isset($request->featured) && $request->featured == "on"){
@@ -189,6 +194,7 @@ class PostsController extends Controller
         if (is_array($request->input('teams'))&& $request->input('teams')){
             $post->teams()->sync($request->input('teams'));
         }
+        $this->notifyIfDue($post);
         session()->flash('success', __('site.successfully.updated'));
         return redirect()->route('dashboard.posts.index');
     }
@@ -267,67 +273,31 @@ class PostsController extends Controller
     }
 
     /**
-     * Send push notification to all clients when a new post is created.
+     * Parse the optional "published_at" input (Egypt time) and convert it to UTC.
+     * Returns null when the admin wants an immediate publish.
      */
-    private function sendPostNotification(Post $post): void
+    private function parsePublishedAt(Request $request): ?\Carbon\Carbon
     {
-        try {
-            $tokens_en = array_filter(array_unique(array_merge(
-                \App\Models\Client::where('locale', 'en')->whereNotNull('fb_token')->pluck('fb_token')->toArray(),
-                \App\Models\Guest::tokensEn()
-            )));
-
-            $tokens_ar = array_filter(array_unique(array_merge(
-                \App\Models\Client::where('locale', 'ar')->whereNotNull('fb_token')->pluck('fb_token')->toArray(),
-                \App\Models\Guest::tokensAr()
-            )));
-
-            $imageUrl = $post->image
-                ? asset('storage/uploads/post_images/' . $post->image)
-                : '';
-
-            $notify = [
-                'type' => 'post',
-                'id' => (string)$post->id,
-            ];
-
-            // English
-            if (!empty($tokens_en)) {
-                $titleEn = $post->translate('en')?->name ?? $post->translate('ar')?->name ?? 'New Post';
-                $bodyEn = $post->translate('en')?->description
-                    ? substr(strip_tags($post->translate('en')->description), 0, 100) . '...'
-                    : '';
-
-                $this->topicNotifyByFirebaseTokens($tokens_en, [
-                    'title' => $titleEn,
-                    'body' => $bodyEn,
-                    'image' => $imageUrl,
-                    'notify' => $notify,
-                ]);
-            }
-
-            // Arabic
-            if (!empty($tokens_ar)) {
-                $titleAr = $post->translate('ar')?->name ?? $post->translate('en')?->name ?? 'منشور جديد';
-                $bodyAr = $post->translate('ar')?->description
-                    ? substr(strip_tags($post->translate('ar')->description), 0, 100) . '...'
-                    : '';
-
-                $this->topicNotifyByFirebaseTokens($tokens_ar, [
-                    'title' => $titleAr,
-                    'body' => $bodyAr,
-                    'image' => $imageUrl,
-                    'notify' => $notify,
-                ]);
-            }
-
-        } catch (\Exception $e) {
-            // Don't fail the post creation if notification fails
-            \Illuminate\Support\Facades\Log::error('Auto post notification failed', [
-                'post_id' => $post->id,
-                'message' => $e->getMessage(),
-            ]);
+        if (!$request->filled('published_at')) {
+            return null;
         }
+        return \Carbon\Carbon::parse($request->input('published_at'), 'Africa/Cairo')->utc();
+    }
+
+    /**
+     * Send the push notification only when the post is due and it was not sent before.
+     * Scheduled (future) posts are skipped here; the scheduler command handles them.
+     */
+    private function notifyIfDue(Post $post): void
+    {
+        if ($post->notified_at !== null) {
+            return;
+        }
+        if ($post->published_at !== null && $post->published_at->isFuture()) {
+            return;
+        }
+        app(PostNotificationService::class)->send($post);
+        $post->forceFill(['notified_at' => now()])->save();
     }
 
 }

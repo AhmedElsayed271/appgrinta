@@ -283,6 +283,24 @@
                             }
                         },
                         {
+                            field: 'published_at',
+                            title: '{{__("site.post.publish_at_col")}}',
+                            sortable: false,
+                            overflow: 'visible',
+                            autoHide: false,
+                            template: function (data) {
+                                if (!data.published_at) {
+                                    return '<span class="label label-light-success label-inline">{{__("site.post.published")}}</span>';
+                                }
+                                var when = new Date(data.published_at);
+                                if (when.getTime() > Date.now()) {
+                                    return '<span class="label label-light-warning label-inline">{{__("site.post.scheduled")}}</span><br><small>' +
+                                        when.toLocaleString('ar-EG', { timeZone: 'Africa/Cairo' }) + '</small>';
+                                }
+                                return '<span class="label label-light-success label-inline">{{__("site.post.published")}}</span>';
+                            }
+                        },
+                        {
                             field: 'Actions',
                             title: '{{__('site.global.action')}}',
                             sortable: false,

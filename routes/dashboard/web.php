@@ -15,6 +15,7 @@ use App\Http\Controllers\Dashboard\PostsController;
 use App\Http\Controllers\Dashboard\RolesController;
 use App\Http\Controllers\Dashboard\SettingsController;
 use App\Http\Controllers\Dashboard\TeamsController;
+use App\Http\Controllers\Dashboard\TranslateController;
 use App\Http\Controllers\Dashboard\UsersController;
 use App\Http\Controllers\Dashboard\WelcomeController;
 use Illuminate\Support\Facades\Route;
@@ -62,6 +63,9 @@ Route::group(
                 Route::post('unfeatureAll',         [PostsController::class, 'unfeatureAll'])->name('posts.unfeatureAll');
                 Route::post('assign-all',           [PostsController::class, 'assignAll'])->name('posts.assignAll');
                 Route::post('changePostSort',       [PostsController::class, 'changePostSort'])->name('posts.changePostSort');
+
+                // Translate
+                Route::post('translate', [TranslateController::class, 'translate'])->name('translate');
 
                 // Countries
                 Route::resource('countries', CountriesController::class);

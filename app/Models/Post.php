@@ -16,7 +16,13 @@ class Post extends Model
         'user_id',
         'featured',
         'sort',
-        'youtube_link'
+        'youtube_link',
+        'published_at',
+        'notified_at'
+    ];
+    protected $casts = [
+        'published_at' => 'datetime',
+        'notified_at'  => 'datetime',
     ];
     public $translatedAttributes = ['name','description'];
     const SEARCHFIELDS=[
@@ -94,6 +100,31 @@ class Post extends Model
     public function reactions(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(\App\Models\PostReaction::class, 'post_id');
+    }
+
+    /**
+     * Only posts that are already published (not scheduled for the future).
+     */
+    public function scopePublished($query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query->where(function ($q) {
+            $q->whereNull('published_at')->orWhere('published_at', '<=', now());
+        });
+    }
+
+    /**
+     * Scheduled posts that are due now and whose notification was not sent yet.
+     */
+    public function scopeDueForNotification($query): \Illuminate\Database\Eloquent\Builder
+    {
+        return $query->whereNotNull('published_at')
+            ->where('published_at', '<=', now())
+            ->whereNull('notified_at');
+    }
+
+    public function isScheduled(): bool
+    {
+        return $this->published_at !== null && $this->published_at->isFuture();
     }
 
 }
