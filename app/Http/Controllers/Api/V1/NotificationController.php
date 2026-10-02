@@ -106,6 +106,7 @@ class NotificationController extends Controller
 
     public function post_post(Request $request)
     {
+        $this->persistNotifications = false;
         $request->validate([
             'post_id'  => ['required', 'exists:posts,id'],
             'ar.name'  => ['required'],
@@ -154,6 +155,7 @@ class NotificationController extends Controller
 
     public function match_post(Request $request)
     {
+        $this->persistNotifications = false;
         $request->validate([
             'match_id' => ['required', 'exists:matches,id'],
             'ar.name'  => ['required'],
@@ -205,6 +207,7 @@ class NotificationController extends Controller
 
     public function url_post(Request $request)
     {
+        $this->persistNotifications = false;
         $request->validate([
             'ar.name' => ['required'],
             'en.name' => ['required'],
@@ -252,6 +255,7 @@ class NotificationController extends Controller
 
     public function team_post(Request $request)
     {
+        $this->persistNotifications = false;
         $request->validate([
             'team_id' => ['required'],
             'screen'  => ['required'],
@@ -312,6 +316,7 @@ class NotificationController extends Controller
 
     public function competition_post(Request $request)
     {
+        $this->persistNotifications = false;
         $request->validate([
             'competition_id' => ['required'],
             'screen'         => ['required'],

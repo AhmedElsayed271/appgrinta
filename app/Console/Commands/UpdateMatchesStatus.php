@@ -184,6 +184,7 @@ class UpdateMatchesStatus extends Command
     // ── Fan notifications out to followers of either team ─────────────────
     protected function sendStatusNotification(array $display, string $bodyEn, string $bodyAr): void
     {
+        $this->persistNotifications = false;
         $notifyPayload = [
             'match_id'     => (string) $display['id'],
             'fixture_id'   => (string) ($display['fixture_id'] ?? ''),

@@ -235,6 +235,7 @@ class UpdateMatchesEvents extends Command
 
     protected function sendEventNotification($matches, array $new): void
     {
+        $this->persistNotifications = false;
         $apiEvent      = $new['event'];
         $type          = $new['type'];
         $rawDetail     = $new['rawDetail'];

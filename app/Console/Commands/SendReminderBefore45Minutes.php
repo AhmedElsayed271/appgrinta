@@ -123,6 +123,7 @@ class SendReminderBefore45Minutes extends Command
 
     protected function sendNotificationsToClients($match)
     {
+        $this->persistNotifications = false;
         $match  = $this->prepareMatchData($match);
         $teamIds = [$match->team1_id, $match->team2_id];
 

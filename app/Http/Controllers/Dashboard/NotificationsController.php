@@ -101,7 +101,7 @@ class NotificationsController extends Controller
         ]);
 
         $image  = $this->uploadImage($request);
-        $notify = $this->flattenNotify(['post_id' => $request->input('post_id')]);
+        $notify = $this->flattenNotify(['post_id' => $request->input('post_id'), 'type' => 'post']);
 
         $this->topicNotifyByFirebaseTokens($this->englishTokens(), [
             'title'  => $request->input('en.name'),
@@ -147,6 +147,7 @@ class NotificationsController extends Controller
 
         $notify = $this->flattenNotify([
             'match_id' => $request->input('match_id'),
+            'type'     => 'match_status',
             'match'    => new MatchResource($match),
         ]);
 
@@ -184,7 +185,7 @@ class NotificationsController extends Controller
         ]);
 
         $image  = $this->uploadImage($request);
-        $notify = $this->flattenNotify(['url' => $request->input('url', '')]);
+        $notify = $this->flattenNotify(['url' => $request->input('url', ''), 'type' => 'announcement']);
 
         $this->topicNotifyByFirebaseTokens($this->englishTokens(), [
             'title'  => $request->input('en.name'),
@@ -231,6 +232,7 @@ class NotificationsController extends Controller
             'image'  => $image,
             'notify' => $this->flattenNotify([
                 'team_id' => $team->team_id,
+                'type'    => 'team',
                 'screen'  => $request->input('screen'),
                 'team'    => new TeamResource($team),
             ]),
@@ -243,6 +245,7 @@ class NotificationsController extends Controller
             'notify' => $this->flattenNotify([
                 'team_id' => $team->team_id,
                 'team_ar' => $team->translate('ar')->name,
+                'type'    => 'team',
                 'screen'  => $request->input('screen'),
                 'team'    => new TeamResource($team),
             ]),
@@ -279,6 +282,7 @@ class NotificationsController extends Controller
             'image'  => $image,
             'notify' => $this->flattenNotify([
                 'competition_id' => $request->input('competition_id'),
+                'type'           => 'league',
                 'screen'         => $request->input('screen'),
                 'competition'    => new CompetitionResource($competition),
             ]),
@@ -291,6 +295,7 @@ class NotificationsController extends Controller
             'notify' => $this->flattenNotify([
                 'competition_id' => $request->input('competition_id'),
                 'leg_ar'         => $competition->translate('ar')->name,
+                'type'           => 'league',
                 'screen'         => $request->input('screen'),
                 'competition'    => new CompetitionResource($competition),
             ]),

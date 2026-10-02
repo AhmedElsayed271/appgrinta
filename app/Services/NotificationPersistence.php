@@ -15,16 +15,29 @@ class NotificationPersistence
             return;
         }
 
-        $type    = $data['type'] ?? 'system';
-        $image   = $data['image'] ?? null;
-        $payload = isset($data['payload']) && is_array($data['payload'])
-            ? json_encode($data['payload'], JSON_UNESCAPED_UNICODE)
+        $notify = $data['notify'] ?? null;
+
+        $payloadSource = $data['payload'] ?? $notify;
+        if (is_object($payloadSource) && method_exists($payloadSource, 'toArray')) {
+            $payloadSource = $payloadSource->toArray();
+        }
+        if (is_array($payloadSource)) {
+            $payloadSource = self::normalizePayload($payloadSource);
+        }
+
+        $type  = $data['type'] ?? (is_array($payloadSource) ? ($payloadSource['type'] ?? 'system') : 'system');
+        $image = $data['image'] ?? null;
+
+        $payload = is_array($payloadSource)
+            ? json_encode($payloadSource, JSON_UNESCAPED_UNICODE)
             : null;
 
-        $titleAr = $data['title_ar'] ?? '';
-        $titleEn = $data['title_en'] ?? $data['title_ar'] ?? '';
-        $bodyAr  = $data['body_ar'] ?? '';
-        $bodyEn  = $data['body_en'] ?? $data['body_ar'] ?? '';
+        $title   = $data['title'] ?? '';
+        $body    = $data['body'] ?? '';
+        $titleAr = $data['title_ar'] ?? $title;
+        $titleEn = $data['title_en'] ?? $title;
+        $bodyAr  = $data['body_ar'] ?? $body;
+        $bodyEn  = $data['body_en'] ?? $body;
 
         $now = now();
 
@@ -74,6 +87,38 @@ class NotificationPersistence
                 DB::table('notification_translations')->insert($tRows);
             });
         }
+    }
+
+    /**
+     * Ensure the payload exposes a consistent `type` and an `id` the mobile
+     * app can navigate with (post / match / team / competition ...).
+     */
+    public static function normalizePayload(array $payload): array
+    {
+        $payload['type'] = $payload['type'] ?? 'system';
+
+        if (!isset($payload['id']) || $payload['id'] === '') {
+            $idKeys = ['post_id', 'match_id', 'fixture_id', 'team_id', 'competition_id', 'player_id', 'notification_id'];
+            foreach ($idKeys as $key) {
+                if (isset($payload[$key]) && $payload[$key] !== '' && !is_array($payload[$key])) {
+                    $payload['id'] = (string) $payload[$key];
+                    break;
+                }
+            }
+        }
+
+        $id = isset($payload['id']) ? (string) $payload['id'] : '';
+
+        // Always expose post_id / match_id so the mobile app can branch on them.
+        $payload['post_id'] = isset($payload['post_id']) && $payload['post_id'] !== ''
+            ? (string) $payload['post_id']
+            : (in_array($payload['type'], ['post'], true) ? $id : '');
+
+        $payload['match_id'] = isset($payload['match_id']) && $payload['match_id'] !== ''
+            ? (string) $payload['match_id']
+            : (in_array($payload['type'], ['match_status', 'goal', 'reminder', 'match', 'event'], true) ? $id : '');
+
+        return $payload;
     }
 
     public function persistFromTokens(array $tokens, array $data): void

@@ -5,11 +5,18 @@ namespace App\Traits;
 use App\Jobs\SendFirebaseNotifications;
 use App\Models\Setting;
 use App\Services\FirebaseService;
+use App\Services\NotificationPersistence;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
 
 trait Notify
 {
+    /**
+     * When true, every push sent through this trait is also stored as an
+     * in-app (database) notification for the matching clients. Set to false
+     * in callers that persist the notification themselves to avoid duplicates.
+     */
+    protected bool $persistNotifications = true;
     /**
      * Send notification to a Firebase topic using HTTP v1 API.
      */
@@ -84,8 +91,30 @@ trait Notify
             return;
         }
 
+        if (isset($data['notify']) && is_array($data['notify'])) {
+            $data['notify'] = NotificationPersistence::normalizePayload($data['notify']);
+        }
+
+        if ($this->persistNotifications ?? true) {
+            $this->persistInApp($tokens, $data);
+        }
+
         // Always dispatch to job to avoid request timeout
         dispatch(new SendFirebaseNotifications($tokens, $data))->afterResponse();
+    }
+
+    /**
+     * Store an in-app (database) notification for the clients owning the tokens.
+     */
+    protected function persistInApp(array $tokens, array $data = []): void
+    {
+        try {
+            (new NotificationPersistence())->persistFromTokens($tokens, $data);
+        } catch (\Throwable $e) {
+            Log::error('Notification persistence failed', [
+                'message' => $e->getMessage(),
+            ]);
+        }
     }
 
     /**
@@ -93,6 +122,14 @@ trait Notify
      */
     public function sendNotification(array $tokens, array $data = []): void
     {
+        if (isset($data['notify']) && is_array($data['notify'])) {
+            $data['notify'] = NotificationPersistence::normalizePayload($data['notify']);
+        }
+
+        if ($this->persistNotifications ?? true) {
+            $this->persistInApp($tokens, $data);
+        }
+
         $firebaseService = new FirebaseService();
         $firebaseService->sendNotification($tokens, $data);
     }
