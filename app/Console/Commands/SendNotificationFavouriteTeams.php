@@ -15,10 +15,12 @@ class SendNotificationFavouriteTeams extends Command
 {
     use Notify;
 
-    protected $signature = 'notification:favourite_team';
+    protected $signature = 'notification:favourite_team
+                            {--dry-run : Run without sending notifications}
+                            {--date= : Simulate a specific date (Y-m-d)}
+                            {--hour=9 : Simulate a specific hour (0-23)}';
 
-    // FIX: description corrected to match the actual hour check (10:00, not 08:00)
-    protected $description = 'Send "your favourite team plays today" notification at 10:00 in each client\'s local timezone';
+    protected $description = 'Send "your favourite team plays today" notification at 09:00 in each client\'s local timezone';
 
     public function __construct()
     {
@@ -27,28 +29,48 @@ class SendNotificationFavouriteTeams extends Command
 
     public function handle(): int
     {
+        $isDryRun     = (bool) $this->option('dry-run');
+        $simulateDate = $this->option('date');
+        $simulateHour = (int) $this->option('hour');
+
+        if ($isDryRun) {
+            $this->info('DRY RUN MODE — no notifications will be sent');
+        }
+
         $timezones = Client::cachedTimezones();
+        $totalSent = 0;
 
         foreach ($timezones as $timezone) {
             try {
-                $localNow = Carbon::now($timezone);
+                $localNow = $simulateDate
+                    ? Carbon::parse($simulateDate . ' ' . $simulateHour . ':00:00', $timezone)
+                    : Carbon::now($timezone);
             } catch (\Exception $e) {
                 Log::warning('notification:favourite_team invalid timezone', ['timezone' => $timezone]);
                 continue;
             }
 
-            if ($localNow->hour !== 10 || $localNow->minute !== 0) {
-                continue;
+            // Fire any minute in the 09:00–09:09 window. A per-team/day cache
+            // (set only after a successful send) guarantees exactly one
+            // notification per day and lets a missed/failed run retry.
+            if (!$simulateDate) {
+                if ($localNow->hour !== 9 || $localNow->minute > 9) {
+                    continue;
+                }
             }
 
             $localToday = $localNow->format('Y-m-d');
 
+            // Convert the client's local day to a UTC window so matches stored
+            // in UTC are matched against the correct local date.
+            $startTodayUtc = $localNow->copy()->startOfDay()->utc()->format('Y-m-d H:i:s');
+            $endTodayUtc   = $localNow->copy()->endOfDay()->utc()->format('Y-m-d H:i:s');
+
             // ── Load today's matches once per timezone ────────────────────
-            //    FIX: goal counts removed — irrelevant for a morning "plays
-            //    today" notification and caused N+1 event queries per match.
-            //    FIX: eager-load team translations to avoid N+1 in notify loop.
+            //    Eager-load team translations to avoid N+1 in the notify loop.
             $matches = Matche::query()
-                ->whereDate('match_date', $localToday)
+                ->where('match_date', '>=', $startTodayUtc)
+                ->where('match_date', '<=', $endTodayUtc)
                 ->with(['team1.translations', 'team2.translations'])
                 ->get();
 
@@ -56,11 +78,15 @@ class SendNotificationFavouriteTeams extends Command
                 continue;
             }
 
-            // ── Build a lookup: team_id (API) → match — done once, O(1) later
+            // ── Build a lookup: team_id → match — done once, O(1) later ───
             $matchByTeamId = [];
             foreach ($matches as $match) {
-                $matchByTeamId[$match->team1_id] = $match;
-                $matchByTeamId[$match->team2_id] = $match;
+                if ($match->team1_id) {
+                    $matchByTeamId[$match->team1_id] = $match;
+                }
+                if ($match->team2_id) {
+                    $matchByTeamId[$match->team2_id] = $match;
+                }
             }
 
             // ── Build team id set (our DB primary keys) ───────────────────
@@ -74,6 +100,12 @@ class SendNotificationFavouriteTeams extends Command
                 $getTeam = $teamsById[$teamId] ?? null;
 
                 if (!$getTeam) {
+                    continue;
+                }
+
+                // Dedup: once per (timezone, team, day), recorded after send.
+                $notifiedKey = 'favourite_team_notified_' . $timezone . '_' . $teamId . '_' . $localToday;
+                if (!$isDryRun && cache()->has($notifiedKey)) {
                     continue;
                 }
 
@@ -107,7 +139,22 @@ class SendNotificationFavouriteTeams extends Command
                     'team_id'    => (string) $getTeam->team_id,
                 ];
 
-                if ($tokensEn->isNotEmpty()) {
+                if ($isDryRun) {
+                    if ($tokensEn->isNotEmpty() || $tokensAr->isNotEmpty()) {
+                        $this->line('WOULD SEND: ' . $getTeam->translate('en')->name
+                            . ' [' . $timezone . ']'
+                            . ' | EN: ' . $tokensEn->count()
+                            . ' | AR: ' . $tokensAr->count()
+                            . ' | match_id: ' . $match->id);
+                        $totalSent++;
+                    }
+                    continue;
+                }
+
+                $sentEn = $tokensEn->isNotEmpty();
+                $sentAr = $tokensAr->isNotEmpty();
+
+                if ($sentEn) {
                     $this->topicNotifyByFirebaseTokens($tokensEn->toArray(), [
                         'title'  => $getTeam->translate('en')->name,
                         'body'   => 'Your favourite team ' . $getTeam->translate('en')->name . ' has a match today',
@@ -116,7 +163,7 @@ class SendNotificationFavouriteTeams extends Command
                     ]);
                 }
 
-                if ($tokensAr->isNotEmpty()) {
+                if ($sentAr) {
                     $this->topicNotifyByFirebaseTokens($tokensAr->toArray(), [
                         'title'  => $getTeam->translate('ar')->name,
                         'body'   => 'فريقك المفضل ' . $getTeam->translate('ar')->name . ' لديه مباراة اليوم',
@@ -124,8 +171,20 @@ class SendNotificationFavouriteTeams extends Command
                         'notify' => $notifyPayload,
                     ]);
                 }
+
+                if ($sentEn || $sentAr) {
+                    cache()->put($notifiedKey, true, now()->addDays(2));
+                    Log::info('favourite_team sent', [
+                        'team_id'  => $teamId,
+                        'timezone' => $timezone,
+                        'tokens'   => $tokensEn->count() + $tokensAr->count(),
+                    ]);
+                    $totalSent++;
+                }
             }
         }
+
+        $this->info('Finished favourite_team — sent: ' . $totalSent);
 
         return 0;
     }

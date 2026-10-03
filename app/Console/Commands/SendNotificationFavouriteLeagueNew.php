@@ -56,8 +56,11 @@ class SendNotificationFavouriteLeagueNew extends Command
         try {
             $finishedStatuses = ['FT', 'AET', 'PEN', 'PST', 'CANC', 'SUSP', 'ABD', 'AWD', 'WO'];
 
-            // ── 1. Pre-collect timezones at 09:00 ──────────────────────────
-            $activeTimezones = collect(Client::cachedTimezones())->filter(function ($timezone) use ($simulateDate, $simulateHour, $isDryRun) {
+            // ── 1. Pre-collect timezones in the 09:00–09:09 window ─────────
+            //    Dedup happens per (timezone, competition, round, day) AFTER a
+            //    successful send, so a missed/failed run can retry without
+            //    duplicate pushes.
+            $activeTimezones = collect(Client::cachedTimezones())->filter(function ($timezone) use ($simulateDate, $simulateHour) {
                 try {
                     $localNow = $simulateDate
                         ? Carbon::parse($simulateDate . ' ' . $simulateHour . ':00:00', $timezone)
@@ -65,18 +68,9 @@ class SendNotificationFavouriteLeagueNew extends Command
 
                     // ── In dry-run with date, skip hour check ──────────────
                     if (!$simulateDate) {
-                        if ($localNow->hour !== 9 || $localNow->minute > 2) {
+                        if ($localNow->hour !== 9 || $localNow->minute > 9) {
                             return false;
                         }
-                    }
-
-                    // ── Skip cache check in dry-run ────────────────────────
-                    if (!$isDryRun) {
-                        $cacheKey = 'favourite_league_notified_' . $timezone . '_' . $localNow->format('Y-m-d');
-                        if (cache()->has($cacheKey)) {
-                            return false;
-                        }
-                        cache()->put($cacheKey, true, now()->addDay());
                     }
 
                     return true;
@@ -195,6 +189,15 @@ class SendNotificationFavouriteLeagueNew extends Command
                             continue;
                         }
 
+                        // ── Dedup: once per (timezone, competition, round, day) ──
+                        //    Recorded only AFTER a successful send below, so a
+                        //    failed run retries within the window.
+                        $notifiedKey = 'favourite_league_notified_' . $timezone . '_' . $league->id . '_' . $firstMatch->week . '_' . $localToday;
+                        if (!$isDryRun && cache()->has($notifiedKey)) {
+                            $totalSkipped++;
+                            continue;
+                        }
+
                         $roundLabelEn = $this->getRoundLabelEn((int) $firstMatch->week, $league->id);
                         $roundLabelAr = $this->getRoundLabelAr((int) $firstMatch->week, $league->id);
 
@@ -268,6 +271,9 @@ class SendNotificationFavouriteLeagueNew extends Command
                                 'notify' => $notifyPayload,
                             ]);
                         }
+
+                        // ── Mark as sent only after dispatching ────────────
+                        cache()->put($notifiedKey, true, now()->addDays(2));
 
                         $totalSent++;
                         $this->info('Sent for league: ' . $league->translate('en')->name . ' timezone: ' . $timezone);
