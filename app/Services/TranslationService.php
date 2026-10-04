@@ -189,6 +189,90 @@ class TranslationService
     }
 
     /**
+     * Whether the given locale is written right-to-left.
+     */
+    public function isRtlLanguage(string $locale): bool
+    {
+        return $this->isRtl($locale);
+    }
+
+    /**
+     * Normalize the text direction of an already-written HTML string so it always
+     * renders with the correct direction on clients, without translating anything.
+     *
+     * A `dir` attribute + inline alignment is added to every element (not only the
+     * wrapper) because clients often strip inline CSS or sanitize the outer
+     * <div>s, which used to leave Arabic RTL content rendered left-to-right.
+     * Plain text is returned untouched (wrapping it could leak tags as literal text).
+     */
+    public function forceTextDirection(?string $html, string $locale): string
+    {
+        $html = (string) $html;
+
+        if (trim($html) === '' || !preg_match('/<[^>]+>/', $html)) {
+            return $html;
+        }
+
+        $rtl = $this->isRtl($locale);
+        $dir = $rtl ? 'rtl' : 'ltr';
+
+        $cacheKey = 'text_direction:' . $dir . ':' . md5($html);
+        $cached = Cache::get($cacheKey);
+        if ($cached !== null) {
+            return $cached;
+        }
+
+        $dom = new DOMDocument();
+
+        $previous = libxml_use_internal_errors(true);
+        $loaded = $dom->loadHTML('<?xml encoding="UTF-8">' . $html);
+        libxml_clear_errors();
+        libxml_use_internal_errors($previous);
+
+        if (!$loaded || !$dom->documentElement) {
+            return $html;
+        }
+
+        $body = $this->findBody($dom);
+
+        foreach ($body->childNodes as $child) {
+            if ($child instanceof DOMElement) {
+                $this->forceDirectionOnTree($child, $rtl);
+            }
+        }
+
+        $inner = '';
+        foreach ($body->childNodes as $child) {
+            $inner .= $dom->saveHTML($child);
+        }
+
+        $align = $rtl ? 'right' : 'left';
+        $result = '<div dir="' . $dir . '" style="direction: ' . $dir . '; text-align: ' . $align . ';">' . $inner . '</div>';
+
+        Cache::put($cacheKey, $result, 60 * 24 * 365);
+
+        return $result;
+    }
+
+    /**
+     * Recursively stamp the direction on every element in the tree.
+     */
+    private function forceDirectionOnTree(DOMElement $node, bool $rtl): void
+    {
+        if (preg_match('/^(html|body|head)$/i', $node->tagName)) {
+            return;
+        }
+
+        $this->setElementDirection($node, $rtl);
+
+        foreach ($node->childNodes as $child) {
+            if ($child instanceof DOMElement) {
+                $this->forceDirectionOnTree($child, $rtl);
+            }
+        }
+    }
+
+    /**
      * Force the text direction of every block element to match the target language,
      * overriding any alignment inherited from the source (e.g. Arabic RTL).
      */

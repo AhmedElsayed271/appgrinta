@@ -16,10 +16,18 @@ class PostResource extends JsonResource
      */
     public function toArray($request): array
     {
+        $translator = app(\App\Services\TranslationService::class);
+        $locale = app()->getLocale();
+
+        $description = (string) $this->description !== ''
+            ? (string) $this->description
+            : (string) $this->translate('ar')->description;
+
         return [
             'id'=>(int)$this->id,
             'name'=>(string)$this->name!=null?(string)$this->name:(string)$this->translate('ar')->name,
-            'description'=>(string)$this->description!=null?(string)$this->description:(string)$this->translate('ar')->description,
+            'description'=>$translator->forceTextDirection($description, $locale),
+            'direction'=>$translator->isRtlLanguage($locale) ? 'rtl' : 'ltr',
             'image_path'=>(string)$this->image_path,
             'featured'=>  $this->featured,
             'youtube_link'=> $this->youtube_link,

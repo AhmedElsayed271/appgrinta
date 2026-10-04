@@ -1,0 +1,496 @@
+{
+  "info": {
+    "name": "Grinta - Auth & Notifications API",
+    "description": "Dedicated collection for the mobile API's Auth + Notifications (in-app bell) endpoints.\n\nbase_url = server + /api/v1. Default is the local server: http://localhost:8000/api/v1. For production use https://appgrinta.com/api/v1.\n\nLogin / Register / Social / Google / Biometric-login auto-save `api_token` (and `biometric_token`) into collection variables. The notifications list saves the newest `notification_id` for the delete request. Protected requests use Bearer {{api_token}}.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "auth",
+      "description": "Authentication: email login/register, social (Google/Facebook/Apple), Google id_token, biometric, email verification, logout/delete, and password reset. Tokens returned by login/register/social/google/biometric-login are saved automatically.",
+      "item": [
+        {
+          "name": "Get Auth User",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{api_token}}", "type": "string" }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/user",
+              "host": ["{{base_url}}"],
+              "path": ["user"]
+            }
+          }
+        },
+        {
+          "name": "Register",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"full_name\": \"Ahmed\",\n    \"email\": \"user@example.com\",\n    \"password\": \"12345678\",\n    \"password_confirmation\": \"12345678\",\n    \"fb_token\": \"expo_push_token_here\",\n    \"locale\": \"en\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/register",
+              "host": ["{{base_url}}"],
+              "path": ["register"]
+            },
+            "description": "Required: full_name, email (unique), password (min 8, confirmed), fb_token, locale (en|ar)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j && j.data && j.data.token) { pm.collectionVariables.set('api_token', j.data.token); }",
+                  "if (j && j.data && j.data.biometric_token) { pm.collectionVariables.set('biometric_token', j.data.biometric_token); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Login",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"user@example.com\",\n    \"password\": \"12345678\",\n    \"fb_token\": \"expo_push_token_here\",\n    \"locale\": \"en\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/login",
+              "host": ["{{base_url}}"],
+              "path": ["login"]
+            },
+            "description": "Required: email, password (min 6), fb_token, locale (en|ar). On success saves api_token."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j && j.data && j.data.token) { pm.collectionVariables.set('api_token', j.data.token); }",
+                  "if (j && j.data && j.data.biometric_token) { pm.collectionVariables.set('biometric_token', j.data.biometric_token); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Social Login (Google / Facebook / Apple)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"provider\": \"google\",\n    \"token\": \"ya29_OR_eyJ_provider_token\",\n    \"social_id\": \"\",\n    \"email\": \"\",\n    \"full_name\": \"\",\n    \"fb_token\": \"expo_push_token_here\",\n    \"locale\": \"en\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/social",
+              "host": ["{{base_url}}"],
+              "path": ["social"]
+            },
+            "description": "Required: provider (google|facebook|apple) + token. For google the token (id_token or access_token) is verified and social_id/email/full_name are read from it; other providers may pass social_id/email/full_name."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j && j.data && j.data.token) { pm.collectionVariables.set('api_token', j.data.token); }",
+                  "if (j && j.data && j.data.biometric_token) { pm.collectionVariables.set('biometric_token', j.data.biometric_token); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Google Login (id_token)",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"id_token\": \"eyJ_google_id_token\",\n    \"fb_token\": \"expo_push_token_here\",\n    \"locale\": \"en\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/google",
+              "host": ["{{base_url}}"],
+              "path": ["google"]
+            },
+            "description": "Required: id_token, fb_token, locale (en|ar). The id_token is validated against the configured Google client id(s)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j && j.data && j.data.token) { pm.collectionVariables.set('api_token', j.data.token); }",
+                  "if (j && j.data && j.data.biometric_token) { pm.collectionVariables.set('biometric_token', j.data.biometric_token); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Biometric - Enable",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{api_token}}", "type": "string" }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"enabled\": true\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/biometric/toggle",
+              "host": ["{{base_url}}"],
+              "path": ["biometric", "toggle"]
+            },
+            "description": "Enables biometric login and returns a new biometric_token (saved automatically)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j && j.data && j.data.biometric_token) { pm.collectionVariables.set('biometric_token', j.data.biometric_token); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Biometric - Disable",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{api_token}}", "type": "string" }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"enabled\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/biometric/toggle",
+              "host": ["{{base_url}}"],
+              "path": ["biometric", "toggle"]
+            }
+          }
+        },
+        {
+          "name": "Biometric Login",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"biometric_token\": \"{{biometric_token}}\",\n    \"fb_token\": \"expo_push_token_here\",\n    \"locale\": \"en\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/biometric/login",
+              "host": ["{{base_url}}"],
+              "path": ["biometric", "login"]
+            },
+            "description": "Required: biometric_token. Optional: fb_token, locale. Rotates both api_token and biometric_token (both saved automatically)."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j && j.data && j.data.token) { pm.collectionVariables.set('api_token', j.data.token); }",
+                  "if (j && j.data && j.data.biometric_token) { pm.collectionVariables.set('biometric_token', j.data.biometric_token); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Verify Email",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{api_token}}", "type": "string" }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"verified_code\": \"1234\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/verify_email",
+              "host": ["{{base_url}}"],
+              "path": ["verify_email"]
+            },
+            "description": "Required: verified_code (the 4-digit code emailed on register). Requires Bearer token."
+          }
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{api_token}}", "type": "string" }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/logout",
+              "host": ["{{base_url}}"],
+              "path": ["logout"]
+            },
+            "description": "Clears api_token + fb_token on the server. Requires Bearer token."
+          }
+        },
+        {
+          "name": "Delete Account",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{api_token}}", "type": "string" }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/delete-account",
+              "host": ["{{base_url}}"],
+              "path": ["delete-account"]
+            },
+            "description": "Deletes the authenticated client account. Requires Bearer token."
+          }
+        },
+        {
+          "name": "Password - Send Reset Code",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"email\": \"user@example.com\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/sent_token_to_email",
+              "host": ["{{base_url}}"],
+              "path": ["sent_token_to_email"]
+            },
+            "description": "Required: email (must exist). Emails a reset code/token."
+          }
+        },
+        {
+          "name": "Password - Change",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"token\": \"reset_token_from_email\",\n    \"password\": \"12345678\",\n    \"password_confirmation\": \"12345678\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/change_password",
+              "host": ["{{base_url}}"],
+              "path": ["change_password"]
+            },
+            "description": "Required: token (from password_resets), password (min 6, confirmed)."
+          }
+        }
+      ]
+    },
+    {
+      "name": "notifications",
+      "description": "In-app notification bell: paginated list, unread red-dot count, mark read (single/multiple), mark-all read, delete. All requests need Bearer {{api_token}}. Text language follows ?locale=en|ar.",
+      "item": [
+        {
+          "name": "Get Notifications (list)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{api_token}}", "type": "string" }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/notifications?locale=en&per_page=15",
+              "host": ["{{base_url}}"],
+              "path": ["notifications"],
+              "query": [
+                { "key": "locale", "value": "en", "description": "en | ar" },
+                { "key": "type", "value": "", "description": "Optional filter: goal | match_status | reminder | announcement | post | team | league | system" },
+                { "key": "per_page", "value": "15", "description": "Optional page size (clamped 2-50)" }
+              ]
+            },
+            "description": "Paginated list. Saves the newest notification id into {{notification_id}} for the delete request."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "const rows = (j && j.data && j.data.data) ? j.data.data : [];",
+                  "if (rows.length && rows[0].id) { pm.collectionVariables.set('notification_id', rows[0].id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Notifications - Unread Count",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{api_token}}", "type": "string" }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/notifications/unread-count",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "unread-count"]
+            },
+            "description": "Returns { count } for the unread red-dot."
+          }
+        },
+        {
+          "name": "Mark Notification as Read",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{api_token}}", "type": "string" }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"id\": {{notification_id}}\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/notifications/read",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "read"]
+            },
+            "description": "Provide either `id` (single) or `ids` (array). Returns updated count."
+          }
+        },
+        {
+          "name": "Mark Multiple Notifications as Read",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{api_token}}", "type": "string" }
+              ]
+            },
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"ids\": [1, 2, 3]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{base_url}}/notifications/read",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "read"]
+            }
+          }
+        },
+        {
+          "name": "Mark All Notifications Read",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{api_token}}", "type": "string" }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/notifications/read-all",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "read-all"]
+            }
+          }
+        },
+        {
+          "name": "Delete Notification",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{api_token}}", "type": "string" }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/notifications/{{notification_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["notifications", "{{notification_id}}"]
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:8000/api/v1", "type": "string" },
+    { "key": "api_token", "value": "", "type": "string" },
+    { "key": "biometric_token", "value": "", "type": "string" },
+    { "key": "notification_id", "value": "1", "type": "string" }
+  ]
+}
