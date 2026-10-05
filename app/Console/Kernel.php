@@ -128,7 +128,7 @@ class Kernel extends ConsoleKernel
             ->appendOutputTo(storage_path('logs/run_weekly_notifications.log'));
 
         // "Your favourite team plays today"
-        // Target local time: 09:00 in each client's timezone
+        // Target local time: 10:00 in each client's timezone
         $schedule->command('notification:favourite_team')
             ->everyMinute()
             ->withoutOverlapping(5)

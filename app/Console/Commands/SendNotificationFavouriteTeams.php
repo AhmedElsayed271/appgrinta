@@ -18,9 +18,9 @@ class SendNotificationFavouriteTeams extends Command
     protected $signature = 'notification:favourite_team
                             {--dry-run : Run without sending notifications}
                             {--date= : Simulate a specific date (Y-m-d)}
-                            {--hour=9 : Simulate a specific hour (0-23)}';
+                            {--hour=10 : Simulate a specific hour (0-23)}';
 
-    protected $description = 'Send "your favourite team plays today" notification at 09:00 in each client\'s local timezone';
+    protected $description = 'Send "your favourite team plays today" notification at 10:00 in each client\'s local timezone';
 
     public function __construct()
     {
@@ -50,11 +50,11 @@ class SendNotificationFavouriteTeams extends Command
                 continue;
             }
 
-            // Fire any minute in the 09:00–09:09 window. A per-team/day cache
+            // Fire any minute in the 10:00–10:09 window. A per-team/day cache
             // (set only after a successful send) guarantees exactly one
             // notification per day and lets a missed/failed run retry.
             if (!$simulateDate) {
-                if ($localNow->hour !== 9 || $localNow->minute > 9) {
+                if ($localNow->hour !== 10 || $localNow->minute > 9) {
                     continue;
                 }
             }
