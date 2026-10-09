@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>أنواع الإشعارات (notifications.types)</title>
+    <style>
+        :root {
+            --bg: #0f172a;
+            --panel: #1e293b;
+            --panel-2: #243244;
+            --text: #e2e8f0;
+            --muted: #94a3b8;
+            --accent: #38bdf8;
+            --accent-2: #fbbf24;
+            --green: #4ade80;
+            --red: #f87171;
+            --border: #334155;
+            --radius: 12px;
+        }
+        * { box-sizing: border-box; }
+        body {
+            margin: 0;
+            font-family: "Segoe UI", Tahoma, Arial, sans-serif;
+            background: var(--bg);
+            color: var(--text);
+            line-height: 1.7;
+            padding: 32px 16px;
+        }
+        .wrap { max-width: 920px; margin: 0 auto; }
+        h1 { margin: 0 0 6px; font-size: 1.7rem; }
+        .subtitle { color: var(--muted); margin: 0 0 28px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid var(--border); padding: 10px 12px; text-align: right; vertical-align: top; }
+        th { background: var(--panel-2); color: var(--accent); }
+        td:first-child { font-family: Consolas, "Courier New", monospace; color: var(--accent-2); white-space: nowrap; }
+        .tag { display: inline-block; background: var(--panel-2); border: 1px solid var(--border); border-radius: 6px; padding: 0 8px; font-family: Consolas, "Courier New", monospace; font-size: .85rem; color: var(--accent); }
+        .card { background: var(--panel); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; margin-top: 20px; }
+        .note { color: var(--muted); font-size: .85rem; }
+        .ltr { direction: ltr; text-align: left; font-family: Consolas, "Courier New", monospace; }
+    </style>
+</head>
+<body>
+<div class="wrap">
+    <h1>أنواع الإشعارات في قاعدة البيانات</h1>
+    <p class="subtitle">القيم المعتمدة حاليًا (من الكود): <span class="ltr">App\Models\Notification::TYPES</span></p>
+    <table>
+        <tr><th>Type (القيمة في العمود)</th><th>المعنى</th><th>أين بيستخدمه الباك إند؟</th><th>مثال للـ `data` (التنقل)</th></tr>
+        <tr><td>goal</td><td>حدث ماتش: هدف / ركلة جزاء / قرار VAR</td><td><span class="ltr">UpdateMatchesEvents</span> (يخزن `type = 'goal'` للأحداث من نوع goal/penalty/VAR، غير كده بيخزن `match_status`)</td><td class="ltr">{"match_id":"123","fixture_id":"456789","team_id":"1","type":"system","id":"123","post_id":""}</td></tr>
+        <tr><td>match_status</td><td>تغيير حالة الماتش (1H / HT / 2H / FT / ET / BT / P / AET / PEN)</td><td><span class="ltr">UpdateMatchesStatus</span> · Admin Match Push (<span class="ltr">NotificationController::match_post</span> / Dashboard)</td><td class="ltr">{"match_id":"123","fixture_id":"456789","home_team_id":"1","away_team_id":"2","type":"system","id":"123","post_id":""}</td></tr>
+        <tr><td>reminder</td><td>تذكير قبل الماتش بـ 45 دقيقة</td><td><span class="ltr">SendReminderBefore45Minutes</span></td><td class="ltr">{"match_id":"123","fixture_id":"456789","home_team_id":"1","away_team_id":"2","type":"system","id":"123","post_id":""}</td></tr>
+        <tr><td>announcement</td><td>إشعار مخصص من الأدمن (نص حر)</td><td>Admin URL/Match Push (<span class="ltr">NotificationController::url_post</span> / <span class="ltr">match_post</span>)</td><td class="ltr">{"url":"matches","type":"system","id":"","post_id":"","match_id":""}</td></tr>
+        <tr><td>post</td><td>تم نشر بوست جديد</td><td><span class="ltr">PostNotificationService</span> · Admin Post Push (<span class="ltr">post_post</span>)</td><td class="ltr">{"type":"post","id":"45","post_id":"45","match_id":""}</td></tr>
+        <tr><td>team</td><td>إشعار مخصص عن فريق</td><td>Admin Team Push (<span class="ltr">NotificationController::team_post</span>)</td><td class="ltr">{"team_id":"33","screen":"1","type":"system","id":"33","post_id":"","match_id":""}</td></tr>
+        <tr><td>league</td><td>إشعار مخصص عن الدوري/البطولة</td><td>Admin Competition Push (<span class="ltr">NotificationController::competition_post</span>)</td><td class="ltr">{"competition_id":"5","screen":"1","type":"system","id":"5","post_id":"","match_id":""}</td></tr>
+        <tr><td>system</td><td>افتراضي (تلقائي)</td><td>Favourite Team/League · Static Daily · Third-degree · Lineup · Trait (status/events) · Legacy Controller</td><td class="ltr">يختلف حسب المرسل (match_id/team_id/url/screen/round...)</td></tr>
+    </table>
+    <div class="card">
+        <p><strong>ملاحظة:</strong> القيم دي هي اللي موجودة في <span class="tag">Notification::TYPES</span>. في قاعدة البيانات العمود <span class="tag">type</span> بيخزن أي واحدة منها (أو <span class="tag">NULL</span>) حسب اللي بيبعته السندر.</p>
+        <p class="note">للـ FCM (Push): شوف <span class="ltr">docs/match-notification-payloads.md</span> · للـ DB Bell: شوف <span class="ltr">docs/database-notifications.md</span></p>
+    </div>
+</div>
+</body>
+</html>

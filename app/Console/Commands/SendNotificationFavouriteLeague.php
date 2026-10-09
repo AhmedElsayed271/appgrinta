@@ -87,6 +87,7 @@ class SendNotificationFavouriteLeague extends Command
                     'competition_en' => $league->translate('en')->name,
                     'competition_ar' => $league->translate('ar')->name,
                     'image'          => (string) ($league->image_path ?? ''),
+                    'type'           => 'league',
                 ];
 
                 $this->topicNotifyByFirebaseTokens($client_tokens_en, [

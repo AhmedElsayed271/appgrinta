@@ -401,13 +401,22 @@ class UpdateMatchesEvents extends Command
         }
 
         // ── Persist the same event in the in-app bell ────────────────────
+        // Separate goal (scored) from other events (cards/VAR etc)
+        $eventType = 'events';
+        if (in_array($type, ['goal', 'own goal'], true)) {
+            $eventType = 'goal';
+        } elseif (in_array($type, ['missed penalty', 'penalty confirmed', 'goal cancelled', 'var'], true)) {
+            $eventType = 'events';
+        } elseif (in_array($type, ['yellow card', 'second yellow card', 'red card'], true)) {
+            $eventType = 'events';
+        }
         (new NotificationPersistence())->persist($clientsNotified, [
             'title_ar' => $matches[0]['home_team_name_ar'] . ' - ' . $matches[0]['away_team_name_ar'],
             'title_en' => $matches[0]['home_team_name_en'] . ' - ' . $matches[0]['away_team_name_en'],
             'body_ar'  => $NotificationBodyAr,
             'body_en'  => $NotificationBodyEn,
             'image'    => $teamNotif->image_path ?? null,
-            'type'     => in_array($type, ['goal', 'missed penalty', 'penalty confirmed', 'goal cancelled', 'var'], true) ? 'goal' : 'match_status',
+            'type'     => $eventType,
             'payload'  => $notifyPayload,
         ]);
     }

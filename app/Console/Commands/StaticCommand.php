@@ -27,6 +27,7 @@ class StaticCommand extends Command
             $notifyPayload = [
                 'url'   => 'matches',
                 'image' => $imageUrl,
+                'type'  => 'reminder',
             ];
 
             $client_tokens_en = DB::table('clients')

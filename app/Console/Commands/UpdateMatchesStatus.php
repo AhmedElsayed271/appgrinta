@@ -185,11 +185,46 @@ class UpdateMatchesStatus extends Command
     protected function sendStatusNotification(array $display, string $bodyEn, string $bodyAr): void
     {
         $this->persistNotifications = false;
+
+        // ── Detailed status goes in sub_type; top-level type stays match_status
+        $subType   = null;
+        $type      = 'match_status';
+        $statusRaw = $display['status'] ?? $display['match_status'] ?? '';
+        switch (strtoupper((string) $statusRaw)) {
+            case '1H':
+                $subType = 'match_started';
+                break;
+            case 'HT':
+                $subType = 'half_time';
+                break;
+            case '2H':
+                $subType = 'second_half';
+                break;
+            case 'ET':
+            case 'BT':
+                $subType = 'extra_time';
+                break;
+            case 'P':
+                $subType = 'penalty';
+                break;
+            case 'FT':
+            case 'AET':
+            case 'PEN':
+                $subType = 'match_ended';
+                break;
+            default:
+                $type    = 'reminder';
+                $subType = null;
+                break;
+        }
+
         $notifyPayload = [
             'match_id'     => (string) $display['id'],
             'fixture_id'   => (string) ($display['fixture_id'] ?? ''),
             'home_team_id' => (string) $display['team1_id'],
             'away_team_id' => (string) $display['team2_id'],
+            'type'         => $type,
+            'sub_type'     => $subType,
         ];
 
         $clientsNotified = [];
@@ -250,7 +285,7 @@ class UpdateMatchesStatus extends Command
             'body_ar'  => $bodyAr,
             'body_en'  => $bodyEn,
             'image'    => $display['home_image'] ?? null,
-            'type'     => 'match_status',
+            'type'     => $type,
             'payload'  => $notifyPayload,
         ]);
     }

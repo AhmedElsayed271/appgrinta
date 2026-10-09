@@ -9,6 +9,7 @@ use App\Models\Competition;
 use App\Models\Setting;
 use App\Traits\Notify;
 use App\Traits\NotificationOfMatchesTrait;
+use App\Services\NotificationPersistence;
 use Illuminate\Console\Command;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Http;
@@ -137,6 +138,8 @@ class SendNotificationLineupReadyNew extends Command
         // ── Build match context array used by sendNotificationsToUsers ────
         $matchArray = $this->matchArrayFromFixtureId($match->fixture_id, 0, 0);
 
+        $this->persistNotifications = false;
+
         $this->sendNotificationsToUsers(
             $matchArray,
             'The lineup for both teams is available now',
@@ -144,6 +147,26 @@ class SendNotificationLineupReadyNew extends Command
             false,
             true
         );
+
+        $followerIds = DB::table('favourite_team')
+            ->whereIn('team_id', [$match->team1_id, $match->team2_id])
+            ->pluck('client_id')
+            ->unique()
+            ->values()
+            ->all();
+
+        (new NotificationPersistence())->persist($followerIds, [
+            'title'   => 'Lineup Ready',
+            'body'    => 'The lineup for both teams is available now',
+            'title_ar' => 'التشكيل جاهز',
+            'body_ar'  => 'تشكيلة الفريقين متاحة الان',
+            'type'    => 'reminder',
+            'notify'  => [
+                'fixture_id' => (string) ($match->fixture_id ?? ''),
+                'match_id'   => (string) $match->id,
+                'type'       => 'reminder',
+            ],
+        ]);
 
         Log::info('lineups:new sent', ['fixture_id' => $match->fixture_id]);
     }

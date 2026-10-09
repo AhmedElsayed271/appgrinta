@@ -142,6 +142,7 @@ class SendNotificationLineupReady extends Command
             'home_team_id' => (string) $match->team1_id,
             'away_team_id' => (string) $match->team2_id,
             'lineup'       => 'ok',
+            'type'         => 'reminder',
         ];
 
         try {

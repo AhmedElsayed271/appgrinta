@@ -220,6 +220,7 @@ class SendNotificationFavouriteLeagueNew extends Command
                             'competition_en' => $league->translate('en')->name,
                             'competition_ar' => $league->translate('ar')->name,
                             'image'          => (string) ($league->image_path ?? ''),
+                            'type'           => 'league',
                         ];
 
                         $tokens_en = $clients->where('locale', 'en')->pluck('fb_token')->toArray();

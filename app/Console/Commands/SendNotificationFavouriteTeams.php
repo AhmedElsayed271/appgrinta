@@ -137,6 +137,7 @@ class SendNotificationFavouriteTeams extends Command
                     'fixture_id' => (string) ($match->fixture_id ?? ''),
                     'match_id'   => (string) $match->id,
                     'team_id'    => (string) $getTeam->team_id,
+                    'type'       => 'team',
                 ];
 
                 if ($isDryRun) {

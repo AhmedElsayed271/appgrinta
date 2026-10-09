@@ -25,7 +25,7 @@ class NotificationPersistence
             $payloadSource = self::normalizePayload($payloadSource);
         }
 
-        $type  = $data['type'] ?? (is_array($payloadSource) ? ($payloadSource['type'] ?? 'system') : 'system');
+        $type  = $data['type'] ?? (is_array($payloadSource) ? ($payloadSource['type'] ?? 'reminder') : 'reminder');
         $image = $data['image'] ?? null;
 
         $payload = is_array($payloadSource)
@@ -95,7 +95,7 @@ class NotificationPersistence
      */
     public static function normalizePayload(array $payload): array
     {
-        $payload['type'] = $payload['type'] ?? 'system';
+        $payload['type'] = $payload['type'] ?? 'reminder';
 
         if (!isset($payload['id']) || $payload['id'] === '') {
             $idKeys = ['post_id', 'match_id', 'fixture_id', 'team_id', 'competition_id', 'player_id', 'notification_id'];
@@ -114,9 +114,17 @@ class NotificationPersistence
             ? (string) $payload['post_id']
             : (in_array($payload['type'], ['post'], true) ? $id : '');
 
+        $matchTypes = [
+            'match_status',
+            'goal',
+            'events',
+            'reminder',
+            'match',
+            'event',
+        ];
         $payload['match_id'] = isset($payload['match_id']) && $payload['match_id'] !== ''
             ? (string) $payload['match_id']
-            : (in_array($payload['type'], ['match_status', 'goal', 'reminder', 'match', 'event'], true) ? $id : '');
+            : (in_array($payload['type'], $matchTypes, true) ? $id : '');
 
         return $payload;
     }

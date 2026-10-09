@@ -28,13 +28,13 @@ class Notification extends Model implements TranslatableContract
 
     const TYPES = [
         'goal',
+        'events',
         'match_status',
         'reminder',
         'announcement',
         'post',
         'team',
         'league',
-        'system',
     ];
 
     public function client(): \Illuminate\Database\Eloquent\Relations\BelongsTo

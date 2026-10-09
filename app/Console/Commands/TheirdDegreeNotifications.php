@@ -76,12 +76,14 @@ class TheirdDegreeNotifications extends Command
                     $this->storeEvent(0, 'match-started', null, null, $homeTeam, $match->id);
                     $this->storeEvent(0, 'match-started', null, null, $awayTeam, $match->id);
 
-                    $notifyPayload = [
-                        'match_id'     => (string) $match->id,
-                        'fixture_id'   => (string) ($match->fixture_id ?? ''),
-                        'home_team_id' => (string) $match->team1_id,
-                        'away_team_id' => (string) $match->team2_id,
-                    ];
+                     $notifyPayload = [
+                         'match_id'     => (string) $match->id,
+                         'fixture_id'   => (string) ($match->fixture_id ?? ''),
+                         'home_team_id' => (string) $match->team1_id,
+                         'away_team_id' => (string) $match->team2_id,
+                         'type'         => 'match_status',
+                         'sub_type'     => 'match_started',
+                     ];
 
                     $teams = collect([$match->team1_id, $match->team2_id]);
                     $clientsGotNotification = [];
