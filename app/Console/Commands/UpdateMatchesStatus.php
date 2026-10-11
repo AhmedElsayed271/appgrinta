@@ -173,7 +173,7 @@ class UpdateMatchesStatus extends Command
         $match->notificationSent = implode(',', array_unique(array_filter($notificationSentArray)));
         $match->save();
 
-        $this->sendStatusNotification($display, $statusMap[$status]['en'], $statusMap[$status]['ar']);
+        $this->sendStatusNotification($display, $statusMap[$status]['en'], $statusMap[$status]['ar'], $status);
 
         Log::info('match:events status notification sent', [
             'fixture_id' => $match->fixture_id,
@@ -182,14 +182,14 @@ class UpdateMatchesStatus extends Command
     }
 
     // ── Fan notifications out to followers of either team ─────────────────
-    protected function sendStatusNotification(array $display, string $bodyEn, string $bodyAr): void
+    protected function sendStatusNotification(array $display, string $bodyEn, string $bodyAr, string $status = ''): void
     {
         $this->persistNotifications = false;
 
         // ── Detailed status goes in sub_type; top-level type stays match_status
         $subType   = null;
         $type      = 'match_status';
-        $statusRaw = $display['status'] ?? $display['match_status'] ?? '';
+        $statusRaw = $status;
         switch (strtoupper((string) $statusRaw)) {
             case '1H':
                 $subType = 'match_started';

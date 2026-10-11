@@ -70,6 +70,12 @@ trait NotificationOfMatchesTrait{
             return false;
         }
 
+        // ── In-app bell type: goals vs all other events (cards/VAR/penalty) ──
+        $notifyType = 'events';
+        if ($type === 'goal' && $detail !== 'missed penalty') {
+            $notifyType = 'goal';
+        }
+
         // $extra = $data["time"]["extra"] == null ? 0 : $data["time"]["extra"];
         //     if (($currentElapset + $extra) > ($data["time"]["elapsed"] . ($data['time']['extra'] == null ? '' : ' + '.$data['time']['extra']) + $extra + 3)) {
         //         return false;
@@ -112,7 +118,7 @@ trait NotificationOfMatchesTrait{
             if ($detail == null || $detail == "") {
                 $NotificationBodyEn = $matches[0]["home_goals"] . "-" . $matches[0]["away_goals"] . "\n\r '" .  $data["time"]["elapsed"] . ($data['time']['extra'] == null ? '' : ' + '.$data['time']['extra']) . "   " . "There are a var now in match [VAR]";
                 $NotificationBodyAr = $matches[0]["away_goals"] . "-" . $matches[0]["home_goals"] . "\n\r '" .  $data["time"]["elapsed"] . ($data['time']['extra'] == null ? '' : ' + '.$data['time']['extra']) . "   " . " جاري مراجعة ال[VAR] حاليا";
-                $this->sendNotificationsToUsers($matches,$NotificationBodyEn,$NotificationBodyAr,false);
+                $this->sendNotificationsToUsers($matches,$NotificationBodyEn,$NotificationBodyAr,false,false,null,$notifyType);
                 return true;
             }
         }
@@ -227,7 +233,7 @@ trait NotificationOfMatchesTrait{
             }
         }
 
-        $this->sendNotificationsToUsers($matches,$NotificationBodyEn,$NotificationBodyAr,false,false,$playerImage);
+        $this->sendNotificationsToUsers($matches,$NotificationBodyEn,$NotificationBodyAr,false,false,$playerImage,$notifyType);
 
         // }
         return true;
@@ -260,7 +266,7 @@ trait NotificationOfMatchesTrait{
             $notificationSentArray[] = $time;
             $match->notificationSent = implode(',', array_unique($notificationSentArray));
             $match->save();
-            $this->sendNotificationsToUsers($matches,$message_en,$message_ar,$showGoals,$mergeImages);
+            $this->sendNotificationsToUsers($matches,$message_en,$message_ar,$showGoals,$mergeImages,null,'match_status');
         }
         return true;
     }
@@ -281,7 +287,7 @@ trait NotificationOfMatchesTrait{
         });
     }
 
-    public function sendNotificationsToUsers($matches,$message_en,$message_ar,$showGoals,$mergeImages = false, $playerImage = null)
+    public function sendNotificationsToUsers($matches,$message_en,$message_ar,$showGoals,$mergeImages = false, $playerImage = null, $type = 'reminder')
     {
             $teams = collect();
             $matches->pluck('team1_id')->each(function ($item, $key) use ($teams) {
@@ -293,12 +299,12 @@ trait NotificationOfMatchesTrait{
 
             $ClientsGotEventNotification = array();
             foreach ($teams as $team) {
-                $ClientsGotEventNotification = $this->notifyUsers($team, $matches, $ClientsGotEventNotification,$message_en,$message_ar,$showGoals,$mergeImages, $playerImage);
+                $ClientsGotEventNotification = $this->notifyUsers($team, $matches, $ClientsGotEventNotification,$message_en,$message_ar,$showGoals,$mergeImages, $playerImage, $type);
             }
             return true;
     }
 
-    public function notifyUsers($team, $matches,$ClientsGotEventNotification, $message_en, $message_ar, $showGoals = false, $mergeImages = false, $playerImage = null)
+    public function notifyUsers($team, $matches,$ClientsGotEventNotification, $message_en, $message_ar, $showGoals = false, $mergeImages = false, $playerImage = null, $type = 'reminder')
     {
         $client_ids = DB::table('favourite_team')->where('team_id', $team)->get()->pluck('client_id')->toArray();
         $clients_did_not_got_notification = array_diff($client_ids, $ClientsGotEventNotification);
@@ -314,7 +320,8 @@ trait NotificationOfMatchesTrait{
             'notify' => [
                 'fixture_id' => (string) $matches[0]->fixture_id,
                 'match_id' => (string) $matches[0]->id,
-                'team_id'  => (string) $team,
+                'team_id' => (string) $team,
+                'type'      => $type,
             ]
         ]);
         $this->topicNotifyByFirebaseTokens($client_tokens_ar, [
@@ -325,7 +332,8 @@ trait NotificationOfMatchesTrait{
             'notify' => [
                 'fixture_id' => (string) $matches[0]->fixture_id,
                 'match_id' => (string) $matches[0]->id,
-                'team_id'  => (string) $team,
+                'team_id' => (string) $team,
+                'type'      => $type,
             ]
         ]);
 

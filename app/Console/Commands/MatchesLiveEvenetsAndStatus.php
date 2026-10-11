@@ -71,16 +71,9 @@ class MatchesLiveEvenetsAndStatus extends Command
                         continue;
                     }
 
-                    $matches = $this->matchArrayFromFixtureId(
-                        $value["fixture"]["id"],
-                        $value['goals']['home'],
-                        $value['goals']['away']
-                    );
-
-                    foreach ($value['events'] as $event) {
-                        $this->events($event, $matches, $value["fixture"]["status"]["elapsed"], $match->id);
-                    }
-
+                    // Notifications are intentionally NOT sent here: `events:update`
+                    // is the single source of live-event pushes. `live:get` only
+                    // keeps match status/elapsed/date fresh to avoid duplicate pushes.
                     $match->update([
                         'status'     => $value["fixture"]["status"]["short"],
                         'elapsed'    => $value["fixture"]["status"]["elapsed"],
