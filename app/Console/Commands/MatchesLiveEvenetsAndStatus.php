@@ -4,6 +4,7 @@ namespace App\Console\Commands;
 
 use App\Models\Matche;
 use App\Models\Setting;
+use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Http;
 use App\Traits\NotificationOfMatchesTrait;
 use Illuminate\Console\Command;
@@ -12,6 +13,7 @@ use Illuminate\Support\Facades\Log;
 class MatchesLiveEvenetsAndStatus extends Command
 {
     use NotificationOfMatchesTrait;
+
     /**
      * The name and signature of the console command.
      *
@@ -59,37 +61,52 @@ class MatchesLiveEvenetsAndStatus extends Command
 
             $data = $response->json("response");
 
-            if (empty($data)) {
-                return 0;
-            }
+            if (!empty($data)) {
+                foreach ($data as $value) {
+                    try {
+                        $match = Matche::where('fixture_id', $value["fixture"]["id"])->first();
 
-            foreach ($data as $value) {
-                try {
-                    $match = Matche::where('fixture_id', $value["fixture"]["id"])->first();
+                        if (!$match) {
+                            continue;
+                        }
 
-                    if (!$match) {
-                        continue;
+                        $matches = $this->matchArrayFromFixtureId(
+                            $value["fixture"]["id"],
+                            $value['goals']['home'],
+                            $value['goals']['away']
+                        );
+
+                        foreach ($value['events'] as $event) {
+                            $this->events($event, $matches, $value["fixture"]["status"]["elapsed"], $match->id);
+                        }
+
+                        $match->update([
+                            'status'     => $value["fixture"]["status"]["short"],
+                            'elapsed'    => $value["fixture"]["status"]["elapsed"],
+                            'match_date' => $value["fixture"]["date"],
+                        ]);
+
+                    } catch (\Exception $e) {
+                        Log::error('live:get fixture failed', [
+                            'fixture_id' => $value["fixture"]["id"] ?? null,
+                            'error'      => $e->getMessage(),
+                        ]);
                     }
-
-                    // Notifications are intentionally NOT sent here: `events:update`
-                    // is the single source of live-event pushes. `live:get` only
-                    // keeps match status/elapsed/date fresh to avoid duplicate pushes.
-                    $match->update([
-                        'status'     => $value["fixture"]["status"]["short"],
-                        'elapsed'    => $value["fixture"]["status"]["elapsed"],
-                        'match_date' => $value["fixture"]["date"],
-                    ]);
-
-                } catch (\Exception $e) {
-                    Log::error('live:get fixture failed', [
-                        'fixture_id' => $value["fixture"]["id"] ?? null,
-                        'error'      => $e->getMessage(),
-                    ]);
                 }
             }
 
         } catch (\Exception $e) {
             Log::error('live:get command failed: ' . $e->getMessage());
+        }
+
+        // Sweep ALL of today's fixtures for match-status changes — including
+        // FT/AET/PEN, which drop out of the `live=` list before we can catch
+        // them. Reuses match:events (date-based, adds sub_type + notificationSent
+        // dedup) so "Match Started / Half Time / Match Finished" always arrive.
+        try {
+            Artisan::call('match:events');
+        } catch (\Throwable $e) {
+            Log::error('live:get match:events sweep failed: ' . $e->getMessage());
         }
 
         return 0;
