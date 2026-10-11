@@ -136,7 +136,7 @@ class MobileNotificationsDemoSeeder extends Seeder
             ], 'بوست جديد', 'شاهد أحدث بوست على جرينتا', 'New Post', 'Check out the latest post on Grinta'],
 
             ['team', [
-                'type' => 'team', 'match_id' => $matchId, 'fixture_id' => $fixture, 'team_id' => $teamApi,
+                'type' => 'team', 'match_id' => $matchId, 'fixture_id' => $fixture, 'team_id' => $teamApi, 'screen' => '1',
             ], 'ريال مدريد', 'فريقك المفضل ريال مدريد لديه مباراة اليوم', 'Real Madrid', 'Your favourite team Real Madrid has a match today'],
 
             ['league', [

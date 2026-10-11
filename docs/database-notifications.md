@@ -94,21 +94,21 @@ DELETE /api/v1/notifications/12
 
 ## 3. What gets saved as `type` and `data`
 
-The persisted `type` is chosen as: explicit **`type`** passed by the sender → else the payload's `type` → else **`"system"`**. The `data` JSON column is the normalized `notify` payload plus a few helpers so the app can branch without knowing the sender:
+The persisted `type` is chosen as: explicit **`type`** passed by the sender → else the payload's `type` → else **`"reminder"`**. The `data` JSON column is the normalized `notify` payload plus a few helpers so the app can branch without knowing the sender:
 
 ```php
 // App\Services\NotificationPersistence::normalizePayload()
-$payload['type'] = $payload['type'] ?? 'system';                    // always present
+$payload['type'] = $payload['type'] ?? 'reminder';                    // always present
 $payload['id']    = first of [post_id, match_id, fixture_id,        // single navigation id
                               team_id, competition_id, player_id, notification_id]
                      that is present;                                // else '' (omitted)
 $payload['post_id']  = explicit post_id, or id when type == 'post';
 $payload['match_id'] = explicit match_id, or id when type in
-                       [match_status, goal, reminder, match, event];
+                       [match_status, goal, events, reminder, match, event];
 ```
 
 > ⚠️ Two quirks to be aware of:
-> 1. Senders that pass their own `type` for the **column** (e.g. `UpdateMatchesStatus` → `match_status`) still normalize the `data` payload, so `data.type` inside the JSON is often **`"system"`** even when the column `type` is specific. **Prefer the column `type` for display, and `data` keys for navigation.**
+> 1. Newer senders pass an explicit `type` For the column (e.g. `UpdateMatchesStatus` &#8594; `match_status`, goals &#8594; `goal`), so `data.type` usually matches the column. Legacy senders without one default `data.type` to **`"reminder"`**. **Prefer the column `type` for display, and `data` keys for navigation.**
 > 2. When the payload contains a non-scalar object (legacy `{ match: {...} }`), `data` is stored as **`null`**.
 
 ---
@@ -122,11 +122,11 @@ $payload['match_id'] = explicit match_id, or id when type in
 | `reminder` | "Match is about to start", 45 min before | Match detail | `SendReminderBefore45Minutes` |
 | `announcement` | Manual / custom push (free text) | Per `data` keys | admin `url` / `match` push |
 | `post` | New post published | Post detail | `PostNotificationService` · admin post push |
-| `team` | Manual push about a team | Team screen (`screen` + `team_id`) | admin team push |
-| `league` | Manual push about a league | League screen (`screen` + `competition_id`) | admin competition push |
-| `system` | Default bucket | Per `data` keys | favourite team / favourite league / static / third-degree / lineup / trait status & events / legacy controller |
+| `team` | Manual push about a team | Team screen (`screen` + `team_id`) | admin team push · favourite-team |
+| `league` | Manual push about a league | League screen (`screen` + `competition_id`) | admin competition push · favourite-league |
+| `reminder` | Default bucket | Per `data` keys | reminder / static / third-degree / lineup / trait status & events / legacy controller |
 
-> The model whitelist (`app/Models/Notification.php`) matches the list above: `goal, match_status, reminder, announcement, post, team, league, system`.
+> The model whitelist (`app/Models/Notification.php`) matches the list above: `goal, events, match_status, reminder, announcement, post, team, league`. `system` was removed; the fallback is `reminder`.
 
 ---
 
@@ -149,7 +149,7 @@ Sender: `UpdateMatchesEvents` (persists `:404`, `type` = `goal` for goal/penalty
     "match_id": "123",
     "fixture_id": "456789",
     "team_id": "1",
-    "type": "system",
+    "type": "goal",
     "id": "123",
     "post_id": ""
   },
@@ -174,7 +174,7 @@ Sender: `UpdateMatchesStatus` (persists `:247`).
     "fixture_id": "456789",
     "home_team_id": "1",
     "away_team_id": "2",
-    "type": "system",
+    "type": "match_status",
     "id": "123",
     "post_id": ""
   },
@@ -201,7 +201,7 @@ Sender: `SendReminderBefore45Minutes` (persists `:176`).
     "fixture_id": "456789",
     "home_team_id": "1",
     "away_team_id": "2",
-    "type": "system",
+    "type": "reminder",
     "id": "123",
     "post_id": ""
   },
@@ -223,7 +223,7 @@ Sender: admin `url` push (`NotificationController::url_post` `:233`, `Dashboard\
   "type": "announcement",
   "data": {
     "url": "matches",
-    "type": "system",
+    "type": "announcement",
     "id": "",
     "post_id": "",
     "match_id": ""
@@ -269,7 +269,7 @@ Sender: admin team push (`NotificationController::team_post` `:294`). `data.team
   "data": {
     "team_id": "33",
     "screen": "1",
-    "type": "system",
+    "type": "team",
     "id": "33",
     "post_id": "",
     "match_id": ""
@@ -293,7 +293,7 @@ Sender: admin competition push (`NotificationController::competition_post` `:351
   "data": {
     "competition_id": "5",
     "screen": "1",
-    "type": "system",
+    "type": "league",
     "id": "5",
     "post_id": "",
     "match_id": ""
@@ -303,11 +303,13 @@ Sender: admin competition push (`NotificationController::competition_post` `:351
 }
 ```
 
-### 5.8 `system` — default bucket (automatic senders)
+### 5.8 automatic senders (`team`, `league`, `reminder`)
 
-Anything sent through the `Notify` trait **without** an explicit `type` lands here: favourite team plays today, favourite league round, static daily, match-started (third-degree), lineup ready, trait-driven status/events, and the legacy controller. Tapping should read `data` keys (`match_id`, `team_id`, `url`, `screen`, `round`, …) to navigate — see `match-notification-payloads.md`.
+Automatic pushes now carry a concrete `type` instead of the old `system` bucket: favourite team plays today → `team`, favourite league round → `league`, and static daily / match-started (third-degree) / lineup ready / reminder / legacy controller → `reminder`. Tapping should read `data` keys (`match_id`, `team_id`, `url`, `screen`, `round`, …) to navigate — see `match-notification-payloads.md`.
 
-Favourite team plays today (`SendNotificationFavouriteTeams` — ⚠️ `team_id` = external API id):
+> **`screen` guaranteed for `team`/`league`:** `NotificationPersistence::normalizePayload` fills `screen = "1"` for any `team` or `league` notification that does not already provide one (an explicit value, including `"0"`, is always preserved). This applies to **both** the API bell payload and the FCM data payload. Existing DB rows are not backfilled.
+
+Favourite team plays today (`SendNotificationFavouriteTeams` — ⚠️ `team_id` = external API id, `type` = `team`):
 
 ```json
 {
@@ -315,12 +317,13 @@ Favourite team plays today (`SendNotificationFavouriteTeams` — ⚠️ `team_id
   "title": "Al Ahly",
   "body": "Your favourite team Al Ahly has a match today",
   "image": "https://cdn.example.com/logo/al-ahly.png",
-  "type": "system",
+  "type": "team",
   "data": {
     "fixture_id": "456789",
     "match_id": "123",
     "team_id": "33",
-    "type": "system",
+    "screen": "1",
+    "type": "team",
     "id": "123",
     "post_id": ""
   },
@@ -337,7 +340,7 @@ Favourite league round starts (`SendNotificationFavouriteLeagueNew`):
   "title": "Egyptian Premier League",
   "body": "Round 12 of Egyptian Premier League starts today",
   "image": "https://cdn.example.com/leagues/epl.png",
-  "type": "system",
+  "type": "league",
   "data": {
     "screen": "1",
     "round": "12",
@@ -345,7 +348,7 @@ Favourite league round starts (`SendNotificationFavouriteLeagueNew`):
     "league_id": "1204",
     "competition_en": "Egyptian Premier League",
     "competition_ar": "الدوري المصري الممتاز",
-    "type": "system",
+    "type": "league",
     "id": "5",
     "post_id": "",
     "match_id": ""
@@ -363,11 +366,11 @@ Static daily (`StaticCommand`):
   "title": "Today's Matches",
   "body": "Check today's top football matches and schedules on Grinta",
   "image": "https://cdn.example.com/static/matches.png",
-  "type": "system",
+  "type": "reminder",
   "data": {
     "url": "matches",
     "image": "https://cdn.example.com/static/matches.png",
-    "type": "system",
+    "type": "reminder",
     "id": "",
     "post_id": "",
     "match_id": ""
@@ -384,8 +387,9 @@ Legacy controller (`GetDataFromFootBallApi` — whole match object, so `data` is
   "id": 2,
   "title": "Al Ahly",
   "body": "Your Favourite team Al Ahlyhas match after 45 minutes",
+  "body": "Your Favourite team Al Ahlyhas match after 45 minutes",
   "image": "https://cdn.example.com/logo/al-ahly.png",
-  "type": "system",
+  "type": "reminder",
   "data": null,
   "is_read": false,
   "created_at": "2026-09-30T14:30:00.000000Z"
@@ -411,10 +415,10 @@ Legacy controller (`GetDataFromFootBallApi` — whole match object, so `data` is
 
 ## 7. Notes / open issues
 
-1. **`data.type` vs column `type`:** most rows carry `"type": "system"` **inside** `data` even when the column is specific (e.g. `goal`) — don't rely on `data.type`.
+1. **`data.type` vs column `type`:** newer senders keep them in sync; legacy rows may carry `"type": "system"` (or omit it → `"reminder"`) inside `data` even when the column is specific (e.g. `goal`) — always prefer the column `type`.
 2. **Both `ar` and `en` translation rows** are always inserted; senders that only pass a single-language `title`/`body` store the same text for both locales (the app reads the client's own locale, so display is right, but the unused locale row is redundant).
 3. **`team_id` is not consistent:** DB primary key in `UpdateMatchesEvents` / `UpdateMatchesStatus` style data, but **external Football-API id** in favourite-team and admin `team` pushes.
 4. **Legacy rows carry `data = null`** (whole-object payload can't be flattened).
 5. `read` only marks **unread** ids; `read-all` marks all unread. Delete is per-item and owner-scoped.
 6. The bell is written on the **same dispatch** as the FCM push, so a client without a registered `fb_token` gets **no** bell row (persistence goes through tokens).
-7. `notifications` rows are never auto-cleaned — consider a retention policy before adding a cleanup command.
+7. In-app notifications are purged hourly by `clear:notifications` (retention 24h / 48h / 7d per type).

@@ -97,6 +97,13 @@ class NotificationPersistence
     {
         $payload['type'] = $payload['type'] ?? 'reminder';
 
+        // League / team notifications always expose a `screen` (same convention
+        // as favourite-league → "1") so the app can deep-link. An explicit value
+        // supplied by the sender (including "0") is always preserved.
+        if ((!isset($payload['screen']) || $payload['screen'] === '') && in_array($payload['type'], ['league', 'team'], true)) {
+            $payload['screen'] = '1';
+        }
+
         if (!isset($payload['id']) || $payload['id'] === '') {
             $idKeys = ['post_id', 'match_id', 'fixture_id', 'team_id', 'competition_id', 'player_id', 'notification_id'];
             foreach ($idKeys as $key) {
