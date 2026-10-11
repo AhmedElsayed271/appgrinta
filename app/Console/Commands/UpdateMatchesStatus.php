@@ -168,6 +168,18 @@ class UpdateMatchesStatus extends Command
             return;
         }
 
+        // ── Cold-start guard ──────────────────────────────────────────────
+        //    First time we ever see this match (empty flag). If it is already
+        //    past kickoff, just record the current phase silently so we do NOT
+        //    replay old "Match Started / Half Time / Match Finished" pushes for
+        //    matches that ended before this command started watching. Only a
+        //    genuine kickoff (1H) is announced.
+        if (empty($notificationSentArray) && $status !== '1H') {
+            $match->notificationSent = $status;
+            $match->save();
+            return;
+        }
+
         // ── Persist the sent flag ─────────────────────────────────────────
         $notificationSentArray[] = $status;
         $match->notificationSent = implode(',', array_unique(array_filter($notificationSentArray)));
