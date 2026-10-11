@@ -343,7 +343,7 @@
     },
     {
       "name": "notifications",
-      "description": "In-app notification bell: paginated list, unread red-dot count, mark read (single/multiple), mark-all read, delete. All requests need Bearer {{api_token}}. Text language follows ?locale=en|ar.",
+                "description": "In-app notification bell: paginated list, unread red-dot count, mark read (single/multiple), mark-all read, delete. All requests need Bearer {{api_token}}. Text language follows ?locale=en|ar. Use ?type= to filter by notification type.",
       "item": [
         {
           "name": "Get Notifications (list)",
@@ -362,7 +362,7 @@
               "path": ["notifications"],
               "query": [
                 { "key": "locale", "value": "en", "description": "en | ar" },
-                { "key": "type", "value": "", "description": "Optional filter: goal | match_status | reminder | announcement | post | team | league | system" },
+                { "key": "type", "value": "", "description": "Optional filter: goal | events | match_status | reminder | announcement | post | team | league" },
                 { "key": "per_page", "value": "15", "description": "Optional page size (clamped 2-50)" }
               ]
             },
@@ -376,7 +376,9 @@
                 "exec": [
                   "const j = pm.response.json();",
                   "const rows = (j && j.data && j.data.data) ? j.data.data : [];",
-                  "if (rows.length && rows[0].id) { pm.collectionVariables.set('notification_id', rows[0].id); }"
+                  "if (rows.length && rows[0].id) { pm.collectionVariables.set('notification_id', rows[0].id); }",
+                  "const firstWithMatch = rows.find(r => r.data && r.data.match_id);",
+                  "if (firstWithMatch) { pm.collectionVariables.set('match_id', firstWithMatch.data.match_id); }"
                 ]
               }
             }
@@ -485,12 +487,72 @@
           }
         }
       ]
+    },
+    {
+      "name": "match",
+      "description": "Fetch a match and its events by match_id. match_id is the internal match id that arrives in push notifications (data.match_id) and in the in-app bell payload.",
+      "item": [
+        {
+          "name": "Get Match by ID",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{api_token}}", "type": "string" }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/matches/{{match_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["matches", "{{match_id}}"],
+              "variable": [
+                { "key": "match_id", "value": "{{match_id}}", "description": "Internal match id (from notification data.match_id)" }
+              ]
+            },
+            "description": "Returns match data (home/away teams, score, status, competition, match_date, elapsed) for {{match_id}}."
+          },
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const j = pm.response.json();",
+                  "if (j && j.data && j.data.id) { pm.collectionVariables.set('match_id', j.data.id); }"
+                ]
+              }
+            }
+          ]
+        },
+        {
+          "name": "Get Match Events",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                { "key": "token", "value": "{{api_token}}", "type": "string" }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/matches/{{match_id}}/events",
+              "host": ["{{base_url}}"],
+              "path": ["matches", "{{match_id}}", "events"]
+            },
+            "description": "Returns the events (goals, cards, VAR...) of the match {{match_id}}."
+          }
+        }
+      ]
     }
   ],
   "variable": [
     { "key": "base_url", "value": "http://localhost:8000/api/v1", "type": "string" },
     { "key": "api_token", "value": "", "type": "string" },
     { "key": "biometric_token", "value": "", "type": "string" },
-    { "key": "notification_id", "value": "1", "type": "string" }
+    { "key": "notification_id", "value": "1", "type": "string" },
+    { "key": "match_id", "value": "1", "type": "string" }
   ]
 }

@@ -22,6 +22,7 @@ class Kernel extends ConsoleKernel
         \App\Console\Commands\SendReminderBefore45Minutes::class,
         \App\Console\Commands\SendNotificationFavouriteLeague::class,
         \App\Console\Commands\SendNotificationLineupReady::class,
+        \App\Console\Commands\ClearNotificationsCommand::class,
 
     ];
 
@@ -159,6 +160,12 @@ class Kernel extends ConsoleKernel
         $schedule->command('clear:events')
             ->dailyAt('03:00')
             ->appendOutputTo(storage_path('logs/clear_events.log'));
+
+        // Purge old in-app notifications by per-type retention (24h/48h/7d)
+        $schedule->command('clear:notifications')
+            ->hourly()
+            ->withoutOverlapping(5)
+            ->appendOutputTo(storage_path('logs/clear_notifications.log'));
 
         $schedule->command('notification:static')
             ->dailyAt('9:00')

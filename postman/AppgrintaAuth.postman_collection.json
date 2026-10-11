@@ -844,7 +844,7 @@
                 {
                   "key": "type",
                   "value": "",
-                  "description": "Optional filter: goal | match_status | reminder | announcement | post | team | league | system"
+                  "description": "Optional filter: goal | events | match_status | reminder | announcement | post | team | league"
                 },
                 {
                   "key": "per_page",
