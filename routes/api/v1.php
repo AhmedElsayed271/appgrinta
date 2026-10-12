@@ -115,8 +115,8 @@ Route::get('countries',             [CountriesController::class, 'index']);
 Route::get('countries/{country}',   [CountriesController::class, 'show']);
 
 // Notifications
-Route::get('notification/daily/{id}',   [NotificationController::class, 'daily']);
-Route::get('notification/weekly/{id}',  [NotificationController::class, 'weekly']);
+Route::get('notification/daily/{id}',   [NotificationController::class, 'daily'])->middleware('throttle:60,1');
+Route::get('notification/weekly/{id}',  [NotificationController::class, 'weekly'])->middleware('throttle:60,1');
 
 // Settings
 Route::get('setting', [SettingController::class, 'setting']);

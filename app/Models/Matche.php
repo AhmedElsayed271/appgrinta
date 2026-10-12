@@ -18,7 +18,8 @@ class Matche extends Model
         'match_date',
         'week',
         'status',
-        'elapsed'
+        'elapsed',
+        'extra'
     ];
     public $translatedAttributes = [
         'location',

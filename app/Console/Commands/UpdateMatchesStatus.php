@@ -72,9 +72,15 @@ class UpdateMatchesStatus extends Command
                     }
 
                     // ── Update match status ───────────────────────────────
+                    // Keep the last non-null added time: the API returns
+                    // `extra` while a half is still running, but reports it as
+                    // null the moment the half ends (HT/FT). Keeping the last
+                    // seen value lets the half-time / full-time notification
+                    // still print the "45+3" / "90+5" stoppage time.
                     $match->update([
                         'status'     => $data1['fixture']['status']['short'],
                         'elapsed'    => $data1['fixture']['status']['elapsed'],
+                        'extra'      => $data1['fixture']['status']['extra'] ?? $match->extra,
                         'match_date' => $data1['fixture']['date'],
                     ]);
 
@@ -106,8 +112,12 @@ class UpdateMatchesStatus extends Command
     //    match) with the already eager-loaded $match->team1 relation.
     protected function buildMatchDisplay($match, array $data1): array
     {
-        $homeGoals = $match->events()->where('status', 'goal')->where('team_id', $match->team1_id)->count();
-        $awayGoals = $match->events()->where('status', 'goal')->where('team_id', $match->team2_id)->count();
+        // Take the live score straight from the API instead of counting
+        // match_events. Events are stored as "{type}-{detail}" (e.g.
+        // "goal-penalty"), so the old `where('status', 'goal')` count always
+        // returned 0 and every status notification showed "0-0".
+        $homeGoals = $data1['goals']['home'] ?? 0;
+        $awayGoals = $data1['goals']['away'] ?? 0;
 
         return [
             'id'               => $match->id,
@@ -139,11 +149,14 @@ class UpdateMatchesStatus extends Command
         }
 
         $elapsed   = $data1['fixture']['status']['elapsed'];
+        $extra     = $match->extra;
         $homeGoals = $display['home_goals'];
         $awayGoals = $display['away_goals'];
         $score     = $homeGoals . '-' . $awayGoals;
         $scoreAr   = $awayGoals . '-' . $homeGoals;
-        $elapsedTick = "\r\n'" . $elapsed . '  ';
+        // Append the added/stoppage time (e.g. 45+3) when available.
+        $elapsedText = ($extra !== null && $extra !== '') ? $elapsed . '+' . $extra : (string) $elapsed;
+        $elapsedTick = "\r\n'" . $elapsedText . '  ';
 
         // ── Status map covers ALL statuses including terminal ones ─────────
         //    This makes end:match redundant — match:events handles FT/AET/PEN.
@@ -154,7 +167,7 @@ class UpdateMatchesStatus extends Command
             'ET'  => ['en' => $score   . $elapsedTick . 'Extra Time Started',                  'ar' => $scoreAr . $elapsedTick . 'لقد بدأت الأشواط الإضافية'],
             'BT'  => ['en' => $score   . $elapsedTick . 'Break During Extra Time',             'ar' => $scoreAr . $elapsedTick . 'استراحة ما بين الشوطين الاضافيين'],
             'P'   => ['en' => $score   . $elapsedTick . 'Penalty Started',                     'ar' => $scoreAr . $elapsedTick . 'لقد بدأت ضربات الجزاء'],
-            'FT'  => ['en' => $score   . "\r\n Match Finished",                                'ar' => $scoreAr . "\r\n انتهت المباراة"],
+            'FT'  => ['en' => $score   . $elapsedTick . 'Match Finished',                      'ar' => $scoreAr . $elapsedTick . 'انتهت المباراة'],
             'AET' => ['en' => $score   . $elapsedTick . 'Match Finished After Extra Time',     'ar' => $scoreAr . $elapsedTick . 'انتهت الأشواط الإضافية و انتهت المباراة'],
             'PEN' => [
                 'en' => $score . "\r\n Match Finished After Penalty " .
@@ -186,6 +199,13 @@ class UpdateMatchesStatus extends Command
         $match->save();
 
         $this->sendStatusNotification($display, $statusMap[$status]['en'], $statusMap[$status]['ar'], $status);
+
+        // Reset the stored stoppage time so the next period starts clean and
+        // does not inherit the previous half's added time.
+        if ($match->extra !== null) {
+            $match->extra = null;
+            $match->save();
+        }
 
         Log::info('match:events status notification sent', [
             'fixture_id' => $match->fixture_id,

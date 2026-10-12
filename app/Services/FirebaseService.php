@@ -18,12 +18,26 @@ class FirebaseService
 
     public function getAccessToken(): string
     {
-        return cache()->remember('firebase_access_token', 3500, function () {
-            $client = new GoogleClient();
-            $client->setAuthConfig(config('firebase.credentials'));
-            $client->addScope('https://www.googleapis.com/auth/firebase.messaging');
-            return $client->fetchAccessTokenWithAssertion()['access_token'];
-        });
+        $cached = cache()->get('firebase_access_token');
+        if (is_string($cached) && $cached !== '') {
+            return $cached;
+        }
+
+        $client = new GoogleClient();
+        $client->setAuthConfig(config('firebase.credentials'));
+        $client->addScope('https://www.googleapis.com/auth/firebase.messaging');
+
+        $token = $client->fetchAccessTokenWithAssertion();
+
+        if (empty($token['access_token'])) {
+            Log::error('FCM: unable to obtain access token', ['response' => $token]);
+
+            throw new \RuntimeException('Unable to obtain Firebase access token');
+        }
+
+        cache()->put('firebase_access_token', $token['access_token'], 3500);
+
+        return $token['access_token'];
     }
 
     public function getFcmUrl(): string
@@ -33,8 +47,6 @@ class FirebaseService
 
     public function sendNotification(array $tokens, array $data = []): void
     {
-        $accessToken = $this->getAccessToken();
-
         $tokens = array_values(array_unique(array_filter($tokens, function ($token) {
             return is_string($token) && $token !== '';
         })));
@@ -43,6 +55,8 @@ class FirebaseService
             Log::warning('FCM: sendNotification called with empty token list');
             return;
         }
+
+        $accessToken = $this->getAccessToken();
 
         $notification = [
             'title' => $data['title'],

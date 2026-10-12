@@ -130,7 +130,7 @@ class NotificationsController extends Controller
         return view('dashboard.notifications.match', compact('page_title', 'matches'));
     }
 
-    public function match_post(Request $request, $match_id)
+    public function match_post(Request $request)
     {
         $request->validate([
             'match_id' => ['required', 'exists:matches,id'],

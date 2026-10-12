@@ -18,10 +18,12 @@ use App\Models\Competition;
 use App\Models\Guest;
 use App\Models\Team;
 use App\Services\NotificationPersistence;
+use App\Traits\ApiResponser;
 
 class NotificationController extends Controller
 {
     use Notify;
+    use ApiResponser;
 
     // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -363,5 +365,26 @@ class NotificationController extends Controller
 
         session()->flash('success', __('site.successfully.added'));
         return redirect()->back();
+    }
+
+    // ─── Legacy stored fixture feeds ────────────────────────────────────────────
+
+    public function daily($id)
+    {
+        return $this->storedMatchesResponse('daily_matches', $id);
+    }
+
+    public function weekly($id)
+    {
+        return $this->storedMatchesResponse('weekly_matches', $id);
+    }
+
+    private function storedMatchesResponse(string $table, $leagueId): \Illuminate\Http\JsonResponse
+    {
+        $row = DB::table($table)->where('league_id', $leagueId)->first();
+
+        $fixtures = $row ? json_decode($row->response, true) : [];
+
+        return $this->successResponse(is_array($fixtures) ? $fixtures : [], 200);
     }
 }

@@ -37,7 +37,7 @@ class UpdateMatchesEvents extends Command
         $setting = Setting::find(1);
 
         $kontrol = testtest::find(1);
-        if ($kontrol->enable != 1) {
+        if (!$kontrol || $kontrol->enable != 1) {
             return 0;
         }
 
@@ -216,13 +216,13 @@ class UpdateMatchesEvents extends Command
         $matches = Matche::where('fixture_id', $fixtureId)
             ->with('competition.parent')
             ->get()
-            ->each(function ($builder) {
+            ->each(function ($builder) use ($data1) {
                 $builder->home_team_name_ar = $builder->team1()->first()->translate('ar')->name;
                 $builder->home_team_name_en = $builder->team1()->first()->translate('en')->name;
                 $builder->away_team_name_ar = $builder->team2()->first()->translate('ar')->name;
                 $builder->away_team_name_en = $builder->team2()->first()->translate('en')->name;
-                $builder->home_goals        = $builder->events()->getQuery()->where('status', 'goal')->where('team_id', $builder->team1_id)->count();
-                $builder->away_goals        = $builder->events()->getQuery()->where('status', 'goal')->where('team_id', $builder->team2_id)->count();
+                $builder->home_goals        = $data1['goals']['home'] ?? 0;
+                $builder->away_goals        = $data1['goals']['away'] ?? 0;
             });
 
         foreach ($newEvents as $new) {
@@ -249,7 +249,8 @@ class UpdateMatchesEvents extends Command
         $awayGoals = $matches[0]['away_goals'];
         $score     = $homeGoals . '-' . $awayGoals;
         $scoreAr   = $awayGoals . '-' . $homeGoals;
-        $prefix    = "\n\r '" . $elapsed . '   ';
+        $extra     = $apiEvent['time']['extra'];
+        $prefix    = "\n\r '" . $elapsed . ($extra == null ? '' : ' + ' . $extra) . '   ';
 
         // ── Build notification bodies ──────────────────────────────────────
         $NotificationBodyEn = '';

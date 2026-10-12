@@ -213,7 +213,7 @@ class GetDataFromFootBallApi extends Controller
     public function updateMatchesStatusWithData()
     {
         $kontrol = testtest::find(1);
-        if ($kontrol->enable == 1) {
+        if ($kontrol && $kontrol->enable == 1) {
 
 
             // leagues wich we will work with
@@ -479,6 +479,9 @@ class GetDataFromFootBallApi extends Controller
     public function startUpdateMatchesEvents()
     {
         $test = testtest::find(1);
+        if (!$test) {
+            return back();
+        }
         $test->update([
             'enable' => 1
         ]);
@@ -488,6 +491,9 @@ class GetDataFromFootBallApi extends Controller
     public function stopUpdateMatchesEvents()
     {
         $test = testtest::find(1);
+        if (!$test) {
+            return back();
+        }
         $test->update([
             'enable' => 0
         ]);
@@ -497,6 +503,9 @@ class GetDataFromFootBallApi extends Controller
     public function updateInMinutes($minute)
     {
         $test = testtest::find(1);
+        if (!$test) {
+            return back();
+        }
         $test->update([
             'minute' => $minute
         ]);
