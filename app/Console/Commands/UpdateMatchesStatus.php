@@ -72,19 +72,25 @@ class UpdateMatchesStatus extends Command
                     }
 
                     // ── Update match status ───────────────────────────────
-                    // Keep the last non-null added time: the API returns
-                    // `extra` while a half is still running, but reports it as
-                    // null the moment the half ends (HT/FT). Keeping the last
-                    // seen value lets the half-time / full-time notification
-                    // still print the "45+3" / "90+5" stoppage time.
+                    // Keep the last non-null added time while a half is still
+                    // running: the API returns `extra` during play but reports
+                    // it as null the moment the half ends (HT/FT). Keeping the
+                    // last seen value lets the half-time / full-time
+                    // notification still print the "45+3" / "90+5" stoppage.
+                    // A new period (1H/2H/ET/P), however, must start clean:
+                    // the previous half's stoppage time must NOT carry into
+                    // it, otherwise 2H would wrongly show e.g. "45+3" at 45.
+                    $status        = $data1['fixture']['status']['short'];
+                    $isPeriodStart = in_array($status, ['1H', '2H', 'ET', 'P'], true);
+
                     $match->update([
-                        'status'     => $data1['fixture']['status']['short'],
+                        'status'     => $status,
                         'elapsed'    => $data1['fixture']['status']['elapsed'],
-                        'extra'      => $data1['fixture']['status']['extra'] ?? $match->extra,
+                        'extra'      => $isPeriodStart
+                            ? null
+                            : ($data1['fixture']['status']['extra'] ?? $match->extra),
                         'match_date' => $data1['fixture']['date'],
                     ]);
-
-                    $status  = $data1['fixture']['status']['short'];
 
                     // ── Build match display data from eager-loaded relations
                     $matchDisplay = $this->buildMatchDisplay($match, $data1);
