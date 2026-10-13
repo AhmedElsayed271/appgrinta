@@ -80,18 +80,19 @@ class MatchesLiveEvenetsAndStatus extends Command
                             $this->events($event, $matches, $value["fixture"]["status"]["elapsed"], $match->id);
                         }
 
-                        // Keep the running half's stoppage time, but never let
-                        // it carry into a new period (2H/ET/P); otherwise the
-                        // start of the second half would display e.g. "45+3".
+                        // While a period is in play the API value is taken as-is
+                        // (so a new half self-cleans); the last known stoppage is
+                        // only kept for a period that has just ended (HT/FT/...),
+                        // otherwise the start of the second half would display
+                        // e.g. "45+3" and full-time could lose its "90+5".
                         $liveStatus    = $value["fixture"]["status"]["short"];
-                        $isPeriodStart = in_array($liveStatus, ['1H', '2H', 'ET', 'P'], true);
+                        $liveExtra     = $value["fixture"]["status"]["extra"] ?? null;
+                        $keepLastExtra = in_array($liveStatus, ['HT', 'BT', 'FT', 'AET', 'PEN'], true);
 
                         $match->update([
                             'status'     => $liveStatus,
                             'elapsed'    => $value["fixture"]["status"]["elapsed"],
-                            'extra'      => $isPeriodStart
-                                ? null
-                                : ($value["fixture"]["status"]["extra"] ?? $match->extra),
+                            'extra'      => $keepLastExtra ? ($liveExtra ?? $match->extra) : $liveExtra,
                             'match_date' => $value["fixture"]["date"],
                         ]);
 

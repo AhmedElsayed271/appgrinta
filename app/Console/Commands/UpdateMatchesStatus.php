@@ -72,23 +72,24 @@ class UpdateMatchesStatus extends Command
                     }
 
                     // ── Update match status ───────────────────────────────
-                    // Keep the last non-null added time while a half is still
-                    // running: the API returns `extra` during play but reports
-                    // it as null the moment the half ends (HT/FT). Keeping the
-                    // last seen value lets the half-time / full-time
-                    // notification still print the "45+3" / "90+5" stoppage.
-                    // A new period (1H/2H/ET/P), however, must start clean:
-                    // the previous half's stoppage time must NOT carry into
-                    // it, otherwise 2H would wrongly show e.g. "45+3" at 45.
-                    $status        = $data1['fixture']['status']['short'];
-                    $isPeriodStart = in_array($status, ['1H', '2H', 'ET', 'P'], true);
+                    // The API reports `extra` while a half is running and drops
+                    // it to null the moment the half ends (HT/FT). So we do NOT
+                    // blank it ourselves at a period start — that broke games
+                    // first seen during stoppage. Instead:
+                    //   • while a period is IN PLAY we take the API value as-is
+                    //     → a new half starts clean and never inherits the
+                    //     previous half's stoppage time (the old "45+3" bug);
+                    //   • for a period that has just ENDED we keep the last seen
+                    //     stoppage so HT/FT can still print "45+3"/"90+5".
+                    $status   = $data1['fixture']['status']['short'];
+                    $apiExtra = $data1['fixture']['status']['extra'] ?? null;
+
+                    $keepLastExtra = in_array($status, ['HT', 'BT', 'FT', 'AET', 'PEN'], true);
 
                     $match->update([
                         'status'     => $status,
                         'elapsed'    => $data1['fixture']['status']['elapsed'],
-                        'extra'      => $isPeriodStart
-                            ? null
-                            : ($data1['fixture']['status']['extra'] ?? $match->extra),
+                        'extra'      => $keepLastExtra ? ($apiExtra ?? $match->extra) : $apiExtra,
                         'match_date' => $data1['fixture']['date'],
                     ]);
 
