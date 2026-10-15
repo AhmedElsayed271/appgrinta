@@ -171,8 +171,20 @@ class SendNotificationFavouriteLeagueNew extends Command
                         //    If this round started yesterday or earlier (some matches
                         //    already played), skip — the notification already fired on the
                         //    round's first day.
+                        //
+                        //    NOTE: `week` numbers are REUSED — across seasons AND across
+                        //    phases within one season (e.g. Europa League week=2 is both
+                        //    qualifying round 2 in July and league-phase matchday 2 in
+                        //    October). Without a date bound the lookup returned the
+                        //    earliest match ever (e.g. 2025-07-24), so the round never
+                        //    appeared to start "today" and this notification was never
+                        //    sent. Bound it to the current occurrence of the round — a
+                        //    single round never spans more than a few weeks.
+                        $lookbackUtc = $localNow->copy()->subDays(30)->utc()->format('Y-m-d H:i:s');
+
                         $roundFirstMatchUtc = Matche::where('competition_id', $league->id)
                             ->where('week', $firstMatch->week)
+                            ->where('match_date', '>=', $lookbackUtc)
                             ->orderBy('match_date')
                             ->value('match_date');
 

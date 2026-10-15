@@ -195,6 +195,65 @@ class ActiveSendersTest extends TestCase
         $this->assertSame('987', $data['round'] ?? null);
     }
 
+    /**
+     * Regression: round numbers are REUSED across seasons/phases (e.g. Europa
+     * League week=2 = qualifying round 2 in July and league-phase matchday 2 in
+     * October). The "round starts today" guard used to look up the earliest match
+     * of the round across ALL history, so a stale match from a previous phase made
+     * the round look like it started long ago and the notification was never sent.
+     */
+    public function test_favourite_league_ignores_stale_same_round_match_from_other_phase(): void
+    {
+        Bus::fake();
+
+        $match = $this->matchWithTranslatedTeams();
+        $competition = Competition::find($match->competition_id);
+
+        if (!$competition || !$competition->translate('en') || !$competition->translate('ar')) {
+            $this->markTestSkipped('Match competition lacks en/ar translations.');
+        }
+
+        $client = $this->follower($match->team1_id, 'en', 'Africa/Cairo');
+
+        DB::table('favourite_competition')->insert([
+            'competition_id' => $competition->id,
+            'client_id'      => $client,
+        ]);
+
+        // Same round number as today's round, but played 90 days ago — a different
+        // phase/season reusing the round number. The 30-day lookback must ignore it.
+        DB::table('matches')->insert([
+            'fixture_id'     => random_int(10000000, 99999999),
+            'team1_id'       => $match->team1_id,
+            'team2_id'       => $match->team2_id,
+            'competition_id' => $competition->id,
+            'match_date'     => now()->subDays(90),
+            'week'           => '4242',
+            'status'         => 'FT',
+            'created_at'     => now(),
+            'updated_at'     => now(),
+        ]);
+
+        // Today's match opens the same round number.
+        $match->update(['week' => '4242', 'status' => 'NS', 'match_date' => now()]);
+
+        $today = now('Africa/Cairo')->format('Y-m-d');
+        Artisan::call('notification:favourite_league', ['--date' => $today, '--hour' => 9]);
+
+        $row = DB::table('notifications')
+            ->where('client_id', $client)
+            ->where('type', 'league')
+            ->first();
+
+        $this->assertNotNull(
+            $row,
+            'a stale match of the same round number must not block today\'s round notification'
+        );
+        $data = json_decode($row->data, true);
+        $this->assertSame('1', $data['screen'] ?? null);
+        $this->assertSame('4242', $data['round'] ?? null);
+    }
+
     public function test_live_get_updates_match_and_persists_goal(): void
     {
         Bus::fake();
