@@ -181,12 +181,20 @@ class ActiveSendersTest extends TestCase
         // "first match of the round" falls on today.
         $match->update(['week' => '987', 'status' => 'NS', 'match_date' => now()]);
 
+        // Production fixtures are present in the local DB; push the competition's
+        // other fixtures off "today" so the sender picks THIS round.
+        DB::table('matches')
+            ->where('competition_id', $competition->id)
+            ->where('id', '!=', $match->id)
+            ->update(['match_date' => now()->subDays(200)]);
+
         $today = now('Africa/Cairo')->format('Y-m-d');
         Artisan::call('notification:favourite_league', ['--date' => $today, '--hour' => 9]);
 
         $row = DB::table('notifications')
             ->where('client_id', $client)
             ->where('type', 'league')
+            ->where('data', 'like', '%"round":"987"%')
             ->first();
 
         $this->assertNotNull($row, 'favourite-league round notification must be stored');
@@ -237,12 +245,20 @@ class ActiveSendersTest extends TestCase
         // Today's match opens the same round number.
         $match->update(['week' => '4242', 'status' => 'NS', 'match_date' => now()]);
 
+        // Production fixtures are present in the local DB; push the competition's
+        // other fixtures off "today" so the sender picks THIS round.
+        DB::table('matches')
+            ->where('competition_id', $competition->id)
+            ->where('id', '!=', $match->id)
+            ->update(['match_date' => now()->subDays(200)]);
+
         $today = now('Africa/Cairo')->format('Y-m-d');
         Artisan::call('notification:favourite_league', ['--date' => $today, '--hour' => 9]);
 
         $row = DB::table('notifications')
             ->where('client_id', $client)
             ->where('type', 'league')
+            ->where('data', 'like', '%"round":"4242"%')
             ->first();
 
         $this->assertNotNull(

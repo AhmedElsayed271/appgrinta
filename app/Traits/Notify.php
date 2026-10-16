@@ -77,7 +77,7 @@ trait Notify
     /**
      * Send notification to multiple tokens, dispatching a job if over 999 tokens.
      */
-    public function topicNotifyByFirebaseTokens(array|Collection $tokens, array $data = []): void
+    public function topicNotifyByFirebaseTokens(array|Collection $tokens, array $data = [], array $notificationIds = []): void
     {
         if ($tokens instanceof Collection) {
             $tokens = $tokens->toArray();
@@ -96,24 +96,28 @@ trait Notify
         }
 
         if ($this->persistNotifications ?? true) {
-            $this->persistInApp($tokens, $data);
+            $notificationIds = $this->persistInApp($tokens, $data) ?: $notificationIds;
         }
 
         // Always dispatch to job to avoid request timeout
-        dispatch(new SendFirebaseNotifications($tokens, $data))->afterResponse();
+        dispatch(new SendFirebaseNotifications($tokens, $data, $notificationIds))->afterResponse();
     }
 
     /**
      * Store an in-app (database) notification for the clients owning the tokens.
+     *
+     * @return array<string,int> Map of fb_token => notification id.
      */
-    protected function persistInApp(array $tokens, array $data = []): void
+    protected function persistInApp(array $tokens, array $data = []): array
     {
         try {
-            (new NotificationPersistence())->persistFromTokens($tokens, $data);
+            return (new NotificationPersistence())->persistFromTokens($tokens, $data);
         } catch (\Throwable $e) {
             Log::error('Notification persistence failed', [
                 'message' => $e->getMessage(),
             ]);
+
+            return [];
         }
     }
 
@@ -126,12 +130,14 @@ trait Notify
             $data['notify'] = NotificationPersistence::normalizePayload($data['notify']);
         }
 
+        $notificationIds = [];
+
         if ($this->persistNotifications ?? true) {
-            $this->persistInApp($tokens, $data);
+            $notificationIds = $this->persistInApp($tokens, $data);
         }
 
         $firebaseService = new FirebaseService();
-        $firebaseService->sendNotification($tokens, $data);
+        $firebaseService->sendNotification($tokens, $data, $notificationIds);
     }
 
     /**

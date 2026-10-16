@@ -138,16 +138,6 @@ class SendNotificationLineupReadyNew extends Command
         // ── Build match context array used by sendNotificationsToUsers ────
         $matchArray = $this->matchArrayFromFixtureId($match->fixture_id, 0, 0);
 
-        $this->persistNotifications = false;
-
-        $this->sendNotificationsToUsers(
-            $matchArray,
-            'The lineup for both teams is available now',
-            'تشكيلة الفريقين متاحة الان',
-            false,
-            true
-        );
-
         $followerIds = DB::table('favourite_team')
             ->whereIn('team_id', [$match->team1_id, $match->team2_id])
             ->pluck('client_id')
@@ -155,7 +145,9 @@ class SendNotificationLineupReadyNew extends Command
             ->values()
             ->all();
 
-        (new NotificationPersistence())->persist($followerIds, [
+        // Persist first so we can attach each device's in-app notification id
+        // to its push payload.
+        $clientMap = (new NotificationPersistence())->persist($followerIds, [
             'title'   => 'Lineup Ready',
             'body'    => 'The lineup for both teams is available now',
             'title_ar' => 'التشكيل جاهز',
@@ -167,6 +159,30 @@ class SendNotificationLineupReadyNew extends Command
                 'type'       => 'reminder',
             ],
         ]);
+
+        $tokenMap = DB::table('clients')
+            ->whereIn('id', $followerIds)
+            ->whereNotNull('fb_token')
+            ->get(['id', 'fb_token'])
+            ->reduce(function ($carry, $client) use ($clientMap) {
+                if (isset($clientMap[$client->id])) {
+                    $carry[$client->fb_token] = $clientMap[$client->id];
+                }
+                return $carry;
+            }, []);
+
+        $this->persistNotifications = false;
+
+        $this->sendNotificationsToUsers(
+            $matchArray,
+            'The lineup for both teams is available now',
+            'تشكيلة الفريقين متاحة الان',
+            false,
+            true,
+            null,
+            'reminder',
+            $tokenMap
+        );
 
         Log::info('lineups:new sent', ['fixture_id' => $match->fixture_id]);
     }

@@ -42,7 +42,7 @@ class MatchEventNotificationTest extends TestCase
 
             public array $sent = [];
 
-            public function topicNotifyByFirebaseTokens(array|Collection $tokens, array $data = []): void
+            public function topicNotifyByFirebaseTokens(array|Collection $tokens, array $data = [], array $notificationIds = []): void
             {
                 $tokens = $tokens instanceof Collection ? $tokens->values()->all() : array_values($tokens);
                 $this->sent[] = ['tokens' => $tokens, 'data' => $data];
@@ -181,7 +181,7 @@ class MatchEventNotificationTest extends TestCase
         $cmd = new class extends \App\Console\Commands\SendReminderBefore45Minutes {
             public array $sent = [];
 
-            public function topicNotifyByFirebaseTokens(array|Collection $tokens, array $data = []): void
+            public function topicNotifyByFirebaseTokens(array|Collection $tokens, array $data = [], array $notificationIds = []): void
             {
                 $tokens = $tokens instanceof Collection ? $tokens->values()->all() : array_values($tokens);
                 $this->sent[] = ['tokens' => $tokens, 'data' => $data];

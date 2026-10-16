@@ -287,7 +287,7 @@ trait NotificationOfMatchesTrait{
         });
     }
 
-    public function sendNotificationsToUsers($matches,$message_en,$message_ar,$showGoals,$mergeImages = false, $playerImage = null, $type = 'reminder')
+    public function sendNotificationsToUsers($matches,$message_en,$message_ar,$showGoals,$mergeImages = false, $playerImage = null, $type = 'reminder', array $notificationIds = [])
     {
             $teams = collect();
             $matches->pluck('team1_id')->each(function ($item, $key) use ($teams) {
@@ -299,12 +299,12 @@ trait NotificationOfMatchesTrait{
 
             $ClientsGotEventNotification = array();
             foreach ($teams as $team) {
-                $ClientsGotEventNotification = $this->notifyUsers($team, $matches, $ClientsGotEventNotification,$message_en,$message_ar,$showGoals,$mergeImages, $playerImage, $type);
+                $ClientsGotEventNotification = $this->notifyUsers($team, $matches, $ClientsGotEventNotification,$message_en,$message_ar,$showGoals,$mergeImages, $playerImage, $type, $notificationIds);
             }
             return true;
     }
 
-    public function notifyUsers($team, $matches,$ClientsGotEventNotification, $message_en, $message_ar, $showGoals = false, $mergeImages = false, $playerImage = null, $type = 'reminder')
+    public function notifyUsers($team, $matches,$ClientsGotEventNotification, $message_en, $message_ar, $showGoals = false, $mergeImages = false, $playerImage = null, $type = 'reminder', array $notificationIds = [])
     {
         $client_ids = DB::table('favourite_team')->where('team_id', $team)->get()->pluck('client_id')->toArray();
         $clients_did_not_got_notification = array_diff($client_ids, $ClientsGotEventNotification);
@@ -323,7 +323,7 @@ trait NotificationOfMatchesTrait{
                 'team_id' => (string) $team,
                 'type'      => $type,
             ]
-        ]);
+        ], $notificationIds);
         $this->topicNotifyByFirebaseTokens($client_tokens_ar, [
             'title' => $matches[0]["home_team_name_ar"] . "-" . $matches[0]["away_team_name_ar"],
             'body' => $showGoals == true ? $matches[0]["away_goals"] . "-" . $matches[0]["home_goals"] . "\r\n" ."  " . $message_ar : $message_ar,
@@ -335,7 +335,7 @@ trait NotificationOfMatchesTrait{
                 'team_id' => (string) $team,
                 'type'      => $type,
             ]
-        ]);
+        ], $notificationIds);
 
         return $ClientsGotEventNotification;
     }

@@ -167,7 +167,7 @@ class MatchStatusNotificationTest extends TestCase
         $cmd = new class extends UpdateMatchesStatus {
             public array $fcm = [];
 
-            public function topicNotifyByFirebaseTokens(array|Collection $tokens, array $data = []): void
+            public function topicNotifyByFirebaseTokens(array|Collection $tokens, array $data = [], array $notificationIds = []): void
             {
                 $this->fcm[] = [
                     'tokens' => is_array($tokens) ? array_values($tokens) : $tokens->values()->all(),

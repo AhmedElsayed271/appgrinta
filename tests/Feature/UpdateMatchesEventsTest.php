@@ -22,7 +22,7 @@ class UpdateMatchesEventsTest extends TestCase
         return new class extends \App\Console\Commands\UpdateMatchesEvents {
             public array $captured = [];
 
-            public function topicNotifyByFirebaseTokens(array|Collection $tokens, array $data = []): void
+            public function topicNotifyByFirebaseTokens(array|Collection $tokens, array $data = [], array $notificationIds = []): void
             {
                 $this->captured[] = $data;
             }

@@ -142,6 +142,29 @@ class SendReminderBefore45Minutes extends Command
             'away_team_id' => (string) $match->team2_id,
         ];
 
+        // ── Persist the reminder in the in-app bell first, so each device's
+        //    push can carry the matching in-app notification id ────────────
+        $clientMap = (new NotificationPersistence())->persist($clientIds, [
+            'title_ar' => "{$match->home_team_name_ar} ضد {$match->away_team_name_ar}",
+            'title_en' => "{$match->home_team_name_en} vs {$match->away_team_name_en}",
+            'body_ar'  => __('site.notification.match_starting_after_45_min', [], 'ar'),
+            'body_en'  => __('site.notification.match_starting_after_45_min', [], 'en'),
+            'image'    => $this->getMergedImage($match->home_image, $match->away_image),
+            'type'     => 'reminder',
+            'payload'  => $notifyPayload,
+        ]);
+
+        $tokenMap = DB::table('clients')
+            ->whereIn('id', $clientIds)
+            ->whereNotNull('fb_token')
+            ->get(['id', 'fb_token'])
+            ->reduce(function ($carry, $client) use ($clientMap) {
+                if (isset($clientMap[$client->id])) {
+                    $carry[$client->fb_token] = $clientMap[$client->id];
+                }
+                return $carry;
+            }, []);
+
         $englishClients = DB::table('clients')
             ->where('locale', 'en')
             ->whereIn('id', $clientIds)
@@ -160,7 +183,7 @@ class SendReminderBefore45Minutes extends Command
                 'body'   => __('site.notification.match_starting_after_45_min', [], 'en'),
                 'image'  => $this->getMergedImage($match->home_image, $match->away_image),
                 'notify' => $notifyPayload,
-            ]);
+            ], $tokenMap);
         }
 
         if ($arabicClients->isNotEmpty()) {
@@ -169,19 +192,8 @@ class SendReminderBefore45Minutes extends Command
                 'body'   => __('site.notification.match_starting_after_45_min', [], 'ar'),
                 'image'  => $this->getMergedImage($match->home_image, $match->away_image),
                 'notify' => $notifyPayload,
-            ]);
+            ], $tokenMap);
         }
-
-        // ── Persist the reminder in the in-app bell ──────────────────────
-        (new NotificationPersistence())->persist($clientIds, [
-            'title_ar' => "{$match->home_team_name_ar} ضد {$match->away_team_name_ar}",
-            'title_en' => "{$match->home_team_name_en} vs {$match->away_team_name_en}",
-            'body_ar'  => __('site.notification.match_starting_after_45_min', [], 'ar'),
-            'body_en'  => __('site.notification.match_starting_after_45_min', [], 'en'),
-            'image'    => $this->getMergedImage($match->home_image, $match->away_image),
-            'type'     => 'reminder',
-            'payload'  => $notifyPayload,
-        ]);
     }
 
     protected function prepareMatchData($match)

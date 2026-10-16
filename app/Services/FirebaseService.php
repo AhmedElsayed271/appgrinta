@@ -45,7 +45,10 @@ class FirebaseService
         return $this->fcmUrl;
     }
 
-    public function sendNotification(array $tokens, array $data = []): void
+    /**
+     * @param  array<string,int|string>  $notificationIds  Map of fb_token => in-app notification id.
+     */
+    public function sendNotification(array $tokens, array $data = [], array $notificationIds = []): void
     {
         $tokens = array_values(array_unique(array_filter($tokens, function ($token) {
             return is_string($token) && $token !== '';
@@ -100,8 +103,16 @@ class FirebaseService
 
         foreach (array_chunk($tokens, 100) as $chunk) {
             try {
-                $responses = Http::pool(function ($pool) use ($chunk, $accessToken, $notification, $notify) {
+                $responses = Http::pool(function ($pool) use ($chunk, $accessToken, $notification, $notify, $notificationIds) {
                     foreach ($chunk as $index => $token) {
+                        // Per-token data: attach this device owner's in-app
+                        // (database) notification id so the mobile app can mark
+                        // it as read. Everything else is unchanged.
+                        $tokenData = $notify;
+                        if (isset($notificationIds[$token]) && $notificationIds[$token] !== null && $notificationIds[$token] !== '') {
+                            $tokenData['notification_id'] = (string) $notificationIds[$token];
+                        }
+
                         $pool->as((string) $index)
                             ->withToken($accessToken)
                             ->timeout(30)
@@ -109,7 +120,7 @@ class FirebaseService
                                 'message' => [
                                     'token'        => $token,
                                     'notification' => $notification,
-                                    'data'         => $notify,
+                                    'data'         => $tokenData,
                                     'android'      => [
                                         'priority'     => 'high',
                                         'notification' => [

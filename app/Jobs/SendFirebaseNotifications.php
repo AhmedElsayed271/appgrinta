@@ -19,7 +19,8 @@ class SendFirebaseNotifications implements ShouldQueue
 
     public function __construct(
         protected array $tokens,
-        protected array $data
+        protected array $data,
+        protected array $notificationIds = []
     ) {}
 
     public function handle(): void
@@ -31,7 +32,7 @@ class SendFirebaseNotifications implements ShouldQueue
 
         foreach ($chunks as $chunk) {
             try {
-                $firebaseService->sendNotification($chunk, $this->data);
+                $firebaseService->sendNotification($chunk, $this->data, $this->notificationIds);
             } catch (\Exception $e) {
                 Log::error('FCM chunk send failed', [
                     'message' => $e->getMessage(),

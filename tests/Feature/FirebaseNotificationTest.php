@@ -169,6 +169,65 @@ class FirebaseNotificationTest extends TestCase
         $this->assertArrayHasKey('apns', $payload['message']);
     }
 
+    public function test_service_attaches_per_token_notification_id(): void
+    {
+        $this->fakeFcm();
+
+        (new FirebaseService())->sendNotification(
+            ['tok-a', 'tok-b'],
+            [
+                'title'  => 'T',
+                'body'   => 'B',
+                'notify' => ['type' => 'goal', 'match_id' => '42'],
+            ],
+            ['tok-a' => 501, 'tok-b' => 502]
+        );
+
+        $dataByToken = [];
+        Http::assertSent(function ($req) use (&$dataByToken) {
+            $message = $req->data()['message'];
+            $dataByToken[$message['token']] = $message['data'];
+
+            return true;
+        });
+
+        $this->assertSame('501', $dataByToken['tok-a']['notification_id']);
+        $this->assertSame('502', $dataByToken['tok-b']['notification_id']);
+        // Existing structure is untouched.
+        $this->assertSame('goal', $dataByToken['tok-a']['type']);
+        $this->assertSame('42', $dataByToken['tok-a']['match_id']);
+    }
+
+    public function test_trait_passes_persisted_notification_id_into_job(): void
+    {
+        Bus::fake();
+
+        $obj = new class {
+            use Notify;
+        };
+
+        $token    = 'tok-' . uniqid();
+        $clientId = $this->makeClient($token);
+
+        $obj->topicNotifyByFirebaseTokens([$token], [
+            'title'  => 'T',
+            'body'   => 'B',
+            'notify' => ['type' => 'goal', 'match_id' => '7'],
+        ]);
+
+        $row = DB::table('notifications')->where('client_id', $clientId)->where('type', 'goal')->first();
+        $this->assertNotNull($row, 'a bell row must be written');
+
+        Bus::assertDispatchedAfterResponse(SendFirebaseNotifications::class, function ($job) use ($token, $row) {
+            $ref  = new \ReflectionObject($job);
+            $prop = $ref->getProperty('notificationIds');
+            $prop->setAccessible(true);
+            $map = $prop->getValue($job);
+
+            return isset($map[$token]) && (int) $map[$token] === (int) $row->id;
+        });
+    }
+
     public function test_service_nulls_unregistered_tokens(): void
     {
         $clientId = DB::table('clients')->insertGetId([

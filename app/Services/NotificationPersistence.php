@@ -7,12 +7,17 @@ use Illuminate\Support\Facades\DB;
 
 class NotificationPersistence
 {
-    public function persist(array $clientIds, array $data): void
+    /**
+     * Persist an in-app (database) notification for the given clients.
+     *
+     * @return array<int,int> Map of client_id => notification id.
+     */
+    public function persist(array $clientIds, array $data): array
     {
         $clientIds = array_values(array_unique(array_filter($clientIds, fn ($id) => $id != null)));
 
         if (count($clientIds) === 0) {
-            return;
+            return [];
         }
 
         $notify = $data['notify'] ?? null;
@@ -41,8 +46,10 @@ class NotificationPersistence
 
         $now = now();
 
+        $map = [];
+
         foreach (array_chunk($clientIds, 500) as $chunk) {
-            DB::transaction(function () use ($chunk, $now, $type, $image, $payload, $titleAr, $titleEn, $bodyAr, $bodyEn) {
+            $chunkMap = DB::transaction(function () use ($chunk, $now, $type, $image, $payload, $titleAr, $titleEn, $bodyAr, $bodyEn) {
                 $beforeMax = DB::table('notifications')->max('id') ?? 0;
 
                 $rows = [];
@@ -59,11 +66,11 @@ class NotificationPersistence
                 }
                 DB::table('notifications')->insert($rows);
 
+                // client_id => freshly created notification id for this batch
                 $ids = DB::table('notifications')
                     ->where('id', '>', $beforeMax)
                     ->whereIn('client_id', $chunk)
-                    ->orderBy('id')
-                    ->pluck('id');
+                    ->pluck('id', 'client_id');
 
                 $tRows = [];
                 foreach ($ids as $nid) {
@@ -85,8 +92,14 @@ class NotificationPersistence
                     ];
                 }
                 DB::table('notification_translations')->insert($tRows);
+
+                return $ids->all();
             });
+
+            $map += $chunkMap;
         }
+
+        return $map;
     }
 
     /**
@@ -136,16 +149,31 @@ class NotificationPersistence
         return $payload;
     }
 
-    public function persistFromTokens(array $tokens, array $data): void
+    /**
+     * Persist an in-app (database) notification for the clients owning the
+     * given device tokens.
+     *
+     * @return array<string,int> Map of fb_token => notification id.
+     */
+    public function persistFromTokens(array $tokens, array $data): array
     {
-        $tokens = array_values(array_unique(array_filter($tokens, fn ($t) => !empty($t) && is_string($t))));
+        $tokens = array_values(array_unique(array_filter($tokens, fn ($token) => $token != null && $token !== '')));
 
         if (count($tokens) === 0) {
-            return;
+            return [];
         }
 
-        $ids = Client::whereIn('fb_token', $tokens)->pluck('id')->all();
+        $clients = Client::whereIn('fb_token', $tokens)->get(['id', 'fb_token']);
 
-        $this->persist($ids, $data);
+        $clientMap = $this->persist($clients->pluck('id')->all(), $data);
+
+        $tokenMap = [];
+        foreach ($clients as $client) {
+            if (isset($clientMap[$client->id])) {
+                $tokenMap[$client->fb_token] = $clientMap[$client->id];
+            }
+        }
+
+        return $tokenMap;
     }
 }
