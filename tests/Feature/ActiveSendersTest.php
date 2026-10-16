@@ -103,7 +103,7 @@ class ActiveSendersTest extends TestCase
         );
     }
 
-    public function test_lineup_ready_persists_reminder_and_dedupes(): void
+    public function test_lineup_ready_persists_match_status_and_dedupes(): void
     {
         Bus::fake();
 
@@ -142,10 +142,10 @@ class ActiveSendersTest extends TestCase
 
         $row = DB::table('notifications')
             ->where('client_id', $client)
-            ->where('type', 'reminder')
+            ->where('type', 'match_status')
             ->first();
 
-        $this->assertNotNull($row, 'lineup-ready reminder must be stored');
+        $this->assertNotNull($row, 'lineup-ready notification must be stored');
         $data = json_decode($row->data, true);
         $this->assertSame('2', $data['screen'] ?? null);
         $this->assertSame('ok', $data['lineup'] ?? null);
@@ -154,7 +154,7 @@ class ActiveSendersTest extends TestCase
 
         $this->assertSame(
             1,
-            DB::table('notifications')->where('client_id', $client)->where('type', 'reminder')->count(),
+            DB::table('notifications')->where('client_id', $client)->where('type', 'match_status')->count(),
             'lineup-ready must fire only once per fixture'
         );
     }

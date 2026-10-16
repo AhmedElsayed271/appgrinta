@@ -152,11 +152,11 @@ class SendNotificationLineupReadyNew extends Command
             'body'    => 'The lineup for both teams is available now',
             'title_ar' => 'التشكيل جاهز',
             'body_ar'  => 'تشكيلة الفريقين متاحة الان',
-            'type'    => 'reminder',
+            'type'    => 'match_status',
             'notify'  => [
                 'fixture_id' => (string) ($match->fixture_id ?? ''),
                 'match_id'   => (string) $match->id,
-                'type'       => 'reminder',
+                'type'       => 'match_status',
             ],
         ]);
 
@@ -180,7 +180,7 @@ class SendNotificationLineupReadyNew extends Command
             false,
             true,
             null,
-            'reminder',
+            'match_status',
             $tokenMap
         );
 

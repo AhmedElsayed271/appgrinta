@@ -140,6 +140,7 @@ class SendReminderBefore45Minutes extends Command
             'fixture_id'   => (string) ($match->fixture_id ?? ''),
             'home_team_id' => (string) $match->team1_id,
             'away_team_id' => (string) $match->team2_id,
+            'type'         => 'match_status',
         ];
 
         // ── Persist the reminder in the in-app bell first, so each device's
@@ -150,7 +151,7 @@ class SendReminderBefore45Minutes extends Command
             'body_ar'  => __('site.notification.match_starting_after_45_min', [], 'ar'),
             'body_en'  => __('site.notification.match_starting_after_45_min', [], 'en'),
             'image'    => $this->getMergedImage($match->home_image, $match->away_image),
-            'type'     => 'reminder',
+            'type'     => 'match_status',
             'payload'  => $notifyPayload,
         ]);
 

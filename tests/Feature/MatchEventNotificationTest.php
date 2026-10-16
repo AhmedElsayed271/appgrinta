@@ -193,8 +193,8 @@ class MatchEventNotificationTest extends TestCase
         $method->invoke($cmd, $match);
 
         $this->assertNotEmpty($cmd->sent, 'reminder must push to Firebase');
-        $this->assertNotEmpty(DB::table('notifications')->where('client_id', $clientEn)->where('type', 'reminder')->get());
-        $this->assertNotEmpty(DB::table('notifications')->where('client_id', $clientAr)->where('type', 'reminder')->get());
+        $this->assertNotEmpty(DB::table('notifications')->where('client_id', $clientEn)->where('type', 'match_status')->get());
+        $this->assertNotEmpty(DB::table('notifications')->where('client_id', $clientAr)->where('type', 'match_status')->get());
 
         $titles = implode('|', array_map(fn ($c) => $c['data']['notify']['match_id'], $cmd->sent));
         $this->assertStringContainsString((string) $match->id, $titles);
