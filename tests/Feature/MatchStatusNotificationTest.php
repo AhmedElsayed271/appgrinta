@@ -98,12 +98,14 @@ class MatchStatusNotificationTest extends TestCase
         $this->assertStringContainsString('45+3', $ht['bodyEn']);
         $this->assertNull($match->fresh()->extra, 'extra must be reset after HT');
 
-        // ---- Second half: no stale added time ----
-        $display = $this->invoke($cmd, 'buildMatchDisplay', [$match, $this->data1(1, 0, 45)]);
-        $this->invoke($cmd, 'handleStatusNotification', [$match, $display, $this->data1(1, 0, 45), '2H']);
+        // ---- Second half: always starts at minute 46 (no 47, no stale extra) ----
+        $display = $this->invoke($cmd, 'buildMatchDisplay', [$match, $this->data1(1, 0, 47)]);
+        $this->invoke($cmd, 'handleStatusNotification', [$match, $display, $this->data1(1, 0, 47), '2H']);
 
         $second = end($cmd->sent);
         $this->assertSame('2H', $second['status']);
+        $this->assertStringContainsString("'46", $second['bodyEn'], 'second half must be reported at 46');
+        $this->assertStringNotContainsString('47', $second['bodyEn'], 'second half must not show 47');
         $this->assertStringNotContainsString('+', $second['bodyEn'], 'stale added time leaked into 2H');
 
         // ---- Full time: 3-1 at 90+5 ----

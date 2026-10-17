@@ -77,6 +77,27 @@ class MatchEvent extends Model
         ';
     }
 
+    /**
+     * Restrict the query to the goals that count towards a team's score.
+     *
+     * Events are stored as "{type}-{detail}" (e.g. "goal-normal goal",
+     * "goal-penalty"), so a plain `where('status', 'goal')` matches almost
+     * nothing and every score came back 0-0. Own goals are credited to the
+     * opponent, since `team_id` holds the team that conceded them.
+     */
+    public function scopeGoalsFor($query, int $teamId, int $opponentTeamId)
+    {
+        return $query->where(function ($q) use ($teamId, $opponentTeamId) {
+            $q->where(function ($sub) use ($teamId) {
+                $sub->whereIn('status', ['goal', 'goal-normal goal', 'goal-penalty'])
+                    ->where('team_id', $teamId);
+            })->orWhere(function ($sub) use ($opponentTeamId) {
+                $sub->where('status', 'goal-own goal')
+                    ->where('team_id', $opponentTeamId);
+            });
+        });
+    }
+
     public function player(): \Illuminate\Database\Eloquent\Relations\BelongsTo
     {
         return $this->belongsTo(\App\Models\Player::class,'player_id');

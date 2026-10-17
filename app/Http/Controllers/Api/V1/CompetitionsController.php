@@ -94,8 +94,8 @@ class CompetitionsController extends Controller
         return $this->showAll(MatchResource::collection($competition->matches()->orderBy('match_date', $order)->when($match_date,function ($builder) use($match_date){
             return $builder->whereDate('match_date',$match_date);
         })->whereIn('competition_id',$children->toArray())->with('competition.parent')->get()->each(function ($builder){
-            $builder->home_goals=$builder->events()->getQuery()->where('status','goal')->where('team_id',$builder->team1_id)->get()->count();
-            $builder->away_goals=$builder->events()->getQuery()->where('status','goal')->where('team_id',$builder->team2_id)->get()->count();
+            $builder->home_goals=$builder->events()->goalsFor($builder->team1_id,$builder->team2_id)->count();
+            $builder->away_goals=$builder->events()->goalsFor($builder->team2_id,$builder->team1_id)->count();
         }))->collection);
     }
 

@@ -107,13 +107,13 @@ class TeamsController extends Controller
 
         if ($order == 'asc') {
             $result = $data->orderBy('match_date', 'ASC')->get()->each(function ($builder){
-                $builder->home_goals=$builder->events()->getQuery()->where('status','goal')->where('team_id',$builder->team1_id)->get()->count();
-                $builder->away_goals=$builder->events()->getQuery()->where('status','goal')->where('team_id',$builder->team2_id)->get()->count();
+                $builder->home_goals=$builder->events()->goalsFor($builder->team1_id,$builder->team2_id)->count();
+                $builder->away_goals=$builder->events()->goalsFor($builder->team2_id,$builder->team1_id)->count();
             });
         }else{
             $result = $data->orderBy('match_date', 'DESC')->get()->each(function ($builder){
-                $builder->home_goals=$builder->events()->getQuery()->where('status','goal')->where('team_id',$builder->team1_id)->get()->count();
-                $builder->away_goals=$builder->events()->getQuery()->where('status','goal')->where('team_id',$builder->team2_id)->get()->count();
+                $builder->home_goals=$builder->events()->goalsFor($builder->team1_id,$builder->team2_id)->count();
+                $builder->away_goals=$builder->events()->goalsFor($builder->team2_id,$builder->team1_id)->count();
             });
         }
 
@@ -272,8 +272,8 @@ class TeamsController extends Controller
         return $this->showAll(MatchResource::collection(Matche::query()->when($match_date,function ($builder) use($match_date){
             return $builder->whereDate('match_date',$match_date);
         })->whereIn('team1_id',[$team1->id,$team2->id])->orWhereIn('team2_id',[$team1->id,$team2->id])->with('competition')->get()->each(function ($builder){
-            $builder->home_goals=$builder->events()->getQuery()->where('status','goal')->where('team_id',$builder->team1_id)->get()->count();
-            $builder->away_goals=$builder->events()->getQuery()->where('status','goal')->where('team_id',$builder->team2_id)->get()->count();
+            $builder->home_goals=$builder->events()->goalsFor($builder->team1_id,$builder->team2_id)->count();
+            $builder->away_goals=$builder->events()->goalsFor($builder->team2_id,$builder->team1_id)->count();
         }))->collection);
     }
 }

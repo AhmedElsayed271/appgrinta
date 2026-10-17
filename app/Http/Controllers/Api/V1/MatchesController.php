@@ -52,14 +52,12 @@ class MatchesController extends Controller
                 ->toDateTimeString();
 
             // ── Goal counts ────────────────────────────────────────────
-            $builder->home_goals = $builder->events()->getQuery()
-                ->where('status', 'goal')
-                ->where('team_id', $builder->team1_id)
+            $builder->home_goals = $builder->events()
+                ->goalsFor($builder->team1_id, $builder->team2_id)
                 ->count();
 
-            $builder->away_goals = $builder->events()->getQuery()
-                ->where('status', 'goal')
-                ->where('team_id', $builder->team2_id)
+            $builder->away_goals = $builder->events()
+                ->goalsFor($builder->team2_id, $builder->team1_id)
                 ->count();
         });
 
@@ -79,14 +77,12 @@ class MatchesController extends Controller
             ->setTimezone($timezone)
             ->toDateTimeString();
 
-        $match->home_goals = $match->events()->getQuery()
-            ->where('status', 'goal')
-            ->where('team_id', $match->team1_id)
+        $match->home_goals = $match->events()
+            ->goalsFor($match->team1_id, $match->team2_id)
             ->count();
 
-        $match->away_goals = $match->events()->getQuery()
-            ->where('status', 'goal')
-            ->where('team_id', $match->team2_id)
+        $match->away_goals = $match->events()
+            ->goalsFor($match->team2_id, $match->team1_id)
             ->count();
 
         return $this->successResponse(new MatchResource($match), 200);

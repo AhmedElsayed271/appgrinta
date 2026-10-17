@@ -163,6 +163,14 @@ class UpdateMatchesStatus extends Command
         $scoreAr   = $awayGoals . '-' . $homeGoals;
         // Append the added/stoppage time (e.g. 45+3) when available.
         $elapsedText = ($extra !== null && $extra !== '') ? $elapsed . '+' . $extra : (string) $elapsed;
+
+        // The second half always kicks off at minute 46. The API can report 47
+        // on the transition poll, and any first-half stoppage must never leak
+        // into the "Second Half Started" notification (e.g. "46+3").
+        if ($status === '2H') {
+            $elapsedText = '46';
+        }
+
         $elapsedTick = "\r\n'" . $elapsedText . '  ';
 
         // ── Status map covers ALL statuses including terminal ones ─────────

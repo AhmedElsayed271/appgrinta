@@ -448,7 +448,7 @@ class GetDataFromFootBallApi extends Controller
         }
 
         $leagueBestPlayers =  MatchEvent::whereIn('match_id', $leagueMatchesId)
-            ->where('status', 'goal')
+            ->whereIn('status', ['goal', 'goal-normal goal', 'goal-penalty'])
             ->whereNotNull('player_id')
             ->select('player_id', DB::raw('count(*) as total'))
             ->groupBy('player_id')
@@ -534,8 +534,8 @@ class GetDataFromFootBallApi extends Controller
         $after45Minutes = $Now->addMinutes($MinutesToAdd)->format('H:i');
 
         $matches = Matche::query()->whereDate('match_date', Carbon::now()->format('Y-m-d'))->whereTime('match_date', $after45Minutes)->with('competition.parent')->get()->each(function ($builder) {
-            $builder->home_goals = $builder->events()->getQuery()->where('status', 'goal')->where('team_id', $builder->team1_id)->get()->count();
-            $builder->away_goals = $builder->events()->getQuery()->where('status', 'goal')->where('team_id', $builder->team2_id)->get()->count();
+            $builder->home_goals = $builder->events()->goalsFor($builder->team1_id, $builder->team2_id)->count();
+            $builder->away_goals = $builder->events()->goalsFor($builder->team2_id, $builder->team1_id)->count();
         });
         $teams = collect();
         $matches->pluck('team1_id')->each(function ($item, $key) use ($teams) {
@@ -576,8 +576,8 @@ class GetDataFromFootBallApi extends Controller
         $after40Minutes = $Now->addMinutes($MinutesToAdd)->format('H:i');
 
         $matches = Matche::query()->whereDate('match_date', Carbon::now()->format('Y-m-d'))->whereTime('match_date', $after40Minutes)->with('competition.parent')->get()->each(function ($builder) {
-            $builder->home_goals = $builder->events()->getQuery()->where('status', 'goal')->where('team_id', $builder->team1_id)->get()->count();
-            $builder->away_goals = $builder->events()->getQuery()->where('status', 'goal')->where('team_id', $builder->team2_id)->get()->count();
+            $builder->home_goals = $builder->events()->goalsFor($builder->team1_id, $builder->team2_id)->count();
+            $builder->away_goals = $builder->events()->goalsFor($builder->team2_id, $builder->team1_id)->count();
         });
         $teams = collect();
         $matches->pluck('team1_id')->each(function ($item, $key) use ($teams) {
@@ -722,8 +722,8 @@ class GetDataFromFootBallApi extends Controller
             $builder->home_team_name_en = $builder->team1()->first()->translate('en')->name;
             $builder->away_team_name_ar = $builder->team2()->first()->translate('ar')->name;
             $builder->away_team_name_en = $builder->team2()->first()->translate('en')->name;
-            $builder->home_goals = $builder->events()->getQuery()->where('status', 'goal')->where('team_id', $builder->team1_id)->get()->count();
-            $builder->away_goals = $builder->events()->getQuery()->where('status', 'goal')->where('team_id', $builder->team2_id)->get()->count();
+            $builder->home_goals = $builder->events()->goalsFor($builder->team1_id, $builder->team2_id)->count();
+            $builder->away_goals = $builder->events()->goalsFor($builder->team2_id, $builder->team1_id)->count();
         });
 
         foreach ($importantEvents as $event) {

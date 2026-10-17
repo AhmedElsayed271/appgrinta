@@ -106,8 +106,8 @@ class MatchEventsController extends Controller
         }
         if ($request->input('status') == 'end match'){
 
-            $first_team_goals=$match->events()->getQuery()->where('status','goal')->where('team_id',$match->team1_id)->get()->count();
-            $second_team_goals=$match->events()->getQuery()->where('status','goal')->where('team_id',$match->team2_id)->get()->count();
+            $first_team_goals=$match->events()->goalsFor($match->team1_id,$match->team2_id)->count();
+            $second_team_goals=$match->events()->goalsFor($match->team2_id,$match->team1_id)->count();
             if ($first_team_goals>$second_team_goals){
                 Point::query()->create([
                     'win'=>'1',
