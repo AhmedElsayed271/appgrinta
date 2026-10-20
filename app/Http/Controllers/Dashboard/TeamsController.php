@@ -171,17 +171,25 @@ class TeamsController extends Controller
         return redirect()->back();
     }
 
-    public function loadPlayers(Team $team){
+    public function loadPlayers(string $local, Team $team){
         $team_id= $team->id;
         $team_id = Team::where('id',$team_id)->first()->team_id;
-        $total=$this->playersWithTeam(1,$team_id);
+        $result=$this->playersWithTeam(1,$team_id);
+        $total=$result['total'];
+        $loaded=$result['loaded'];
+        $created=$result['created'];
         if (is_numeric($total))
         {
             for ($i=2;$i<=$total;$i++){
-                $this->playersWithTeam($i,$team_id);
+                $page=$this->playersWithTeam($i,$team_id);
+                $loaded+=$page['loaded'];
+                $created+=$page['created'];
             }
         }
-        return response()->json('success',200);
+        if ($total===null) {
+            return response()->json('failed to load players',200);
+        }
+        return response()->json('players loaded: '.$loaded.' | new: '.$created,200);
 
     }
 
@@ -191,7 +199,9 @@ class TeamsController extends Controller
         $response = Http::withHeaders([
                  'x-rapidapi-key' => $setting->football_key
         ])->get('https://v3.football.api-sports.io/players?team='.(string)$team.'&season=' . $setting->season . '&page='.$page)->json();
-        if (is_array($response['response'])){
+        $loaded=0;
+        $created=0;
+        if (is_array($response) && is_array($response['response'] ?? null)){
             foreach ($response['response'] as $item){
                 $statistics=$item['statistics'];
                 $team=$statistics[0]['team'];
@@ -231,6 +241,7 @@ class TeamsController extends Controller
                         'twitter_account'=>null,
                         'image'=>$player['photo'],
                     ]);
+                    $created++;
                 }
 
                 if ($checkPlayer->football_team_id != null) {
@@ -241,8 +252,9 @@ class TeamsController extends Controller
                         ]);
                     }
                 }
+                $loaded++;
             }
         }
-        return $response['paging']['total'];
+        return ['total' => $response['paging']['total'] ?? null, 'loaded' => $loaded, 'created' => $created];
     }
 }

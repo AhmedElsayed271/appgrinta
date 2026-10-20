@@ -115,6 +115,7 @@ return [
         'match_date'=>'Match Date',
         'status'=>'Match Status',
         'week'=>'Match Week',
+        'round'=>'Round',
         'id'=>'ID',
         'today'=>'Match today',
         'yesterday'=>'Match yesterday',

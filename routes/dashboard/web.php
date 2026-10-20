@@ -43,6 +43,7 @@ Route::group(
                     Route::get('post',              [NotificationsController::class, 'post'])->name('post');
                     Route::post('post_post',        [NotificationsController::class, 'post_post'])->name('post_post');
                     Route::get('match',             [NotificationsController::class, 'match'])->name('match');
+                    Route::get('matches/search',    [NotificationsController::class, 'matchSearch'])->name('matches.search');
                     Route::post('match_post',       [NotificationsController::class, 'match_post'])->name('match_post');
                     Route::get('url',               [NotificationsController::class, 'url'])->name('url');
                     Route::post('url_post',         [NotificationsController::class, 'url_post'])->name('url_post');

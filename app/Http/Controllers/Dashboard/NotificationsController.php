@@ -8,6 +8,7 @@ use App\Models\Matche;
 use App\Traits\Notify;
 use App\Models\Country;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\TeamResource;
@@ -125,9 +126,133 @@ class NotificationsController extends Controller
 
     public function match()
     {
-        $matches    = Matche::with(['team1', 'team2', 'competition'])->get();
         $page_title = __('site.notification.match');
-        return view('dashboard.notifications.match', compact('page_title', 'matches'));
+        $matches = Matche::with(['team1.translations', 'team2.translations', 'competition.translations'])
+            ->orderByDesc('match_date')
+            ->limit(200)
+            ->get();
+        $competitions = \App\Models\Competition::with('translations')->orderBy('id', 'desc')->get();
+        return view('dashboard.notifications.match', compact('page_title', 'matches', 'competitions'));
+    }
+
+    public function matchSearch(Request $request)
+    {
+        $query = Matche::with([
+            'team1.translations',
+            'team2.translations',
+            'competition.translations',
+            'translations',
+        ]);
+
+        if ($request->filled('q')) {
+            $q = trim($request->q);
+            $query->where(function ($w) use ($q) {
+                $w->whereHas('team1.translations', fn($t) => $t->where('name', 'like', '%' . $q . '%'))
+                    ->orWhereHas('team2.translations', fn($t) => $t->where('name', 'like', '%' . $q . '%'))
+                    ->orWhereHas('competition.translations', fn($t) => $t->where('name', 'like', '%' . $q . '%'));
+            });
+        }
+
+        if ($request->filled('competition_id')) {
+            $query->where('competition_id', $request->competition_id);
+        }
+
+        if ($request->filled('status') && $request->status !== 'all') {
+            if ($request->status === 'upcoming') {
+                $query->whereIn('status', ['NS', 'TBD'])
+                    ->where(function ($q) {
+                        $q->whereNull('match_date')
+                            ->orWhere('match_date', '>=', Carbon::now());
+                    });
+            } elseif ($request->status === 'finished') {
+                $query->whereIn('status', ['FT', 'AET', 'PEN'])
+                    ->where(function ($q) {
+                        $q->whereNull('match_date')
+                            ->orWhere('match_date', '<=', Carbon::now());
+                    });
+            } elseif ($request->status === 'live') {
+                $query->whereIn('status', ['1H', 'HT', '2H', 'ET', 'P', 'PEN']);
+            } elseif ($request->status === 'postponed') {
+                $query->whereIn('status', ['PST', 'CANC', 'SUSP', 'ABD', 'AWD', 'WO']);
+            } else {
+                $query->whereIn('status', [$request->status]);
+            }
+        } else {
+            $query->where(function ($q) {
+                $q->whereIn('status', ['1H', 'HT', '2H', 'ET', 'P', 'PEN'])
+                    ->orWhere(function ($q2) {
+                        $q2->whereIn('status', ['NS', 'TBD'])
+                            ->where(function ($qq) {
+                                $qq->whereNull('match_date')->orWhere('match_date', '>=', Carbon::now());
+                            });
+                    })
+                    ->orWhere(function ($q3) {
+                        $q3->whereIn('status', ['FT', 'AET', 'PEN'])
+                            ->where(function ($qq) {
+                                $qq->whereNull('match_date')->orWhere('match_date', '<=', Carbon::now()->subMinutes(5));
+                            });
+                    })
+                    ->orWhereIn('status', ['PST', 'CANC', 'SUSP', 'ABD', 'AWD', 'WO']);
+            });
+        }
+
+        if ($request->filled('date_filter')) {
+            match ($request->date_filter) {
+                'today'     => $query->whereDate('match_date', Carbon::today()),
+                'yesterday' => $query->whereDate('match_date', Carbon::yesterday()),
+                'last7'     => $query->where('match_date', '>=', Carbon::now()->subDays(7)),
+                'last30'    => $query->where('match_date', '>=', Carbon::now()->subDays(30)),
+                default     => null,
+            };
+        }
+
+        if ($request->filled('from')) {
+            $query->whereDate('match_date', '>=', $request->from);
+        }
+        if ($request->filled('to')) {
+            $query->whereDate('match_date', '<=', $request->to);
+        }
+
+        $statusFilter = $request->input('status');
+        if ($statusFilter === 'upcoming') {
+            $query->orderBy('match_date', 'asc');
+        } else {
+            $query->orderByDesc('match_date');
+        }
+
+        $matches = $query->limit(30)->get();
+
+        $results = $matches->map(function ($m) {
+            $locale = app()->getLocale();
+
+            $team1Name = $m->team1?->translate($locale)?->name ?? $m->team1?->translate('en')?->name ?? '';
+            $team2Name = $m->team2?->translate($locale)?->name ?? $m->team2?->translate('en')?->name ?? '';
+            $compName  = $m->competition?->translate($locale)?->name ?? $m->competition?->translate('en')?->name ?? '';
+
+            $group = $m->translate($locale)?->group ?? $m->translate('ar')?->group ?? $m->translate('en')?->group;
+
+            $homeGoals = $m->home_goals ?? null;
+            $awayGoals = $m->away_goals ?? null;
+            $score = null;
+            if ($homeGoals !== null && $awayGoals !== null && $homeGoals !== '' && $awayGoals !== '') {
+                $score = $homeGoals . '-' . $awayGoals;
+            }
+
+            return [
+                'id'          => $m->id,
+                'text'        => $team1Name . ' vs ' . $team2Name,
+                'team1'       => $team1Name,
+                'team2'       => $team2Name,
+                'competition' => $compName,
+                'match_date'  => $m->match_date ? Carbon::parse($m->match_date)->format('Y-m-d H:i') : null,
+                'week'        => $m->week,
+                'group'       => $group,
+                'status'      => $m->status,
+                'score'       => $score,
+            ];
+        });
+
+        return response()->json(['results' => $results, 'count' => $results->count()]);
     }
 
     public function match_post(Request $request)
