@@ -127,12 +127,8 @@ class NotificationsController extends Controller
     public function match()
     {
         $page_title = __('site.notification.match');
-        $matches = Matche::with(['team1.translations', 'team2.translations', 'competition.translations'])
-            ->orderByDesc('match_date')
-            ->limit(200)
-            ->get();
         $competitions = \App\Models\Competition::with('translations')->orderBy('id', 'desc')->get();
-        return view('dashboard.notifications.match', compact('page_title', 'matches', 'competitions'));
+        return view('dashboard.notifications.match', compact('page_title', 'competitions'));
     }
 
     public function matchSearch(Request $request)
@@ -142,6 +138,8 @@ class NotificationsController extends Controller
             'team2.translations',
             'competition.translations',
             'translations',
+            'events' => fn($q) => $q->whereIn('status', ['goal', 'goal-normal goal', 'goal-penalty', 'goal-own goal'])
+                ->select('id', 'match_id', 'team_id', 'status'),
         ]);
 
         if ($request->filled('q')) {
@@ -171,7 +169,7 @@ class NotificationsController extends Controller
                             ->orWhere('match_date', '<=', Carbon::now());
                     });
             } elseif ($request->status === 'live') {
-                $query->whereIn('status', ['1H', 'HT', '2H', 'ET', 'P', 'PEN']);
+                $query->whereIn('status', ['1H', 'HT', '2H', 'ET', 'P']);
             } elseif ($request->status === 'postponed') {
                 $query->whereIn('status', ['PST', 'CANC', 'SUSP', 'ABD', 'AWD', 'WO']);
             } else {
@@ -206,12 +204,7 @@ class NotificationsController extends Controller
             };
         }
 
-        if ($request->filled('from')) {
-            $query->whereDate('match_date', '>=', $request->from);
-        }
-        if ($request->filled('to')) {
-            $query->whereDate('match_date', '<=', $request->to);
-        }
+
 
         $statusFilter = $request->input('status');
         if ($statusFilter === 'upcoming') {
@@ -231,16 +224,30 @@ class NotificationsController extends Controller
 
             $group = $m->translate($locale)?->group ?? $m->translate('ar')?->group ?? $m->translate('en')?->group;
 
-            $homeGoals = $m->home_goals ?? null;
-            $awayGoals = $m->away_goals ?? null;
             $score = null;
-            if ($homeGoals !== null && $awayGoals !== null && $homeGoals !== '' && $awayGoals !== '') {
+            if (in_array($m->status, ['FT', 'AET', 'PEN'])) {
+                $goalStatuses = ['goal', 'goal-normal goal', 'goal-penalty'];
+                $homeGoals = 0;
+                $awayGoals = 0;
+                if ($m->relationLoaded('events')) {
+                    foreach ($m->events as $e) {
+                        if (in_array($e->status, $goalStatuses) && $e->team_id == $m->team1_id) {
+                            $homeGoals++;
+                        } elseif ($e->status === 'goal-own goal' && $e->team_id == $m->team2_id) {
+                            $homeGoals++;
+                        } elseif (in_array($e->status, $goalStatuses) && $e->team_id == $m->team2_id) {
+                            $awayGoals++;
+                        } elseif ($e->status === 'goal-own goal' && $e->team_id == $m->team1_id) {
+                            $awayGoals++;
+                        }
+                    }
+                }
                 $score = $homeGoals . '-' . $awayGoals;
             }
 
             return [
                 'id'          => $m->id,
-                'text'        => $team1Name . ' vs ' . $team2Name,
+                'text'        => $team1Name . ' vs ' . $team2Name . ($score ? ' (' . $score . ')' : ''),
                 'team1'       => $team1Name,
                 'team2'       => $team2Name,
                 'competition' => $compName,
@@ -249,6 +256,8 @@ class NotificationsController extends Controller
                 'group'       => $group,
                 'status'      => $m->status,
                 'score'       => $score,
+                'home_goals'  => $score !== null ? explode('-', $score)[0] : null,
+                'away_goals'  => $score !== null ? explode('-', $score)[1] : null,
             ];
         });
 

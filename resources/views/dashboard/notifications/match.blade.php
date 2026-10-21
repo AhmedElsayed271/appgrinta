@@ -1,6 +1,62 @@
 {{-- Extends layout --}}
 @extends('layouts.dashboard.default')
 
+@section('styles')
+<style>
+    .notif-match-search .select2-container { width: 100% !important; }
+    .notif-match-search .select2-container--default .select2-selection--single {
+        height: 46px;
+        border: 1px solid #E4E6EF;
+        border-radius: .42rem;
+        background-color: #F3F6F9;
+        transition: border-color .15s ease-in-out, box-shadow .15s ease-in-out;
+    }
+    .notif-match-search .select2-container--default.select2-container--focus .select2-selection--single,
+    .notif-match-search .select2-container--default.select2-container--open .select2-selection--single {
+        border-color: #6993FF;
+        box-shadow: 0 0 0 .2rem rgba(105, 147, 255, .15);
+    }
+    .notif-match-search .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 44px;
+        padding-inline-start: 44px;
+        padding-inline-end: 32px;
+        color: #3F4254;
+        font-weight: 500;
+    }
+    .notif-match-search .select2-container--default .select2-selection--single .select2-selection__arrow { height: 44px; }
+    .notif-match-search .select2-dropdown {
+        border: 1px solid #E4E6EF;
+        border-radius: .42rem;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, .12);
+        overflow: hidden;
+    }
+    .notif-match-search .select2-search--dropdown { padding: 10px; background: #fff; }
+    .notif-match-search .select2-search__field {
+        border: 1px solid #E4E6EF !important;
+        border-radius: .42rem;
+        padding: 8px 12px;
+        outline: none;
+        width: 100% !important;
+    }
+    .notif-match-search .select2-results__options { max-height: 340px; background: #fff; }
+    .notif-match-search .select2-results__option { padding: 10px 14px; transition: background-color .15s ease; border-bottom: 1px solid #f5f5f5; }
+    .notif-match-search .select2-results__option:last-child { border-bottom: 0; }
+    .notif-match-search .select2-results__option--highlighted { background-color: #dddddd !important; color: #1F1F1F !important; }
+    .notif-match-search .select2-results__option:hover { background-color: #e9e9e9 !important; }
+    .notif-match-search .select2-results__option[aria-selected=true] { background-color: #f0f0f0 !important; color: #1F1F1F !important; }
+    .notif-match-search__icon {
+        position: absolute;
+        top: 50%;
+        inset-inline-start: 16px;
+        transform: translateY(-50%);
+        z-index: 5;
+        pointer-events: none;
+        line-height: 0;
+    }
+    .notif-status-badge { box-shadow: 0 1px 2px rgba(0,0,0,.08); }
+</style>
+@endsection
+
 {{-- Content --}}
 @section('content')
     <div class="card card-custom">
@@ -68,56 +124,47 @@
                     <div class="form-group row">
                         <label class="col-form-label col-lg-3 col-sm-12">{{__('site.match.name')}}</label>
                         <div class="col-lg-9 col-md-9 col-sm-12">
-                            <div class="row mb-3">
-                                <div class="col-md-3">
-                                    <select id="match_status_filter" class="form-control">
-                                        <option value="all">كل الماتشات</option>
-                                        <option value="live">جارية الآن</option>
-                                        <option value="upcoming">لم تبدأ بعد</option>
-                                        <option value="finished">انتهت</option>
-                                        <option value="postponed">مؤجلة / ملغاة</option>
+                            <div class="row mb-4">
+                                <div class="col-md-3 col-sm-12">
+                                    <label class="font-weight-bold text-muted mb-1" for="match_status_filter">{{ app()->getLocale() == 'ar' ? 'الحالة' : 'Status' }}</label>
+                                    <select id="match_status_filter" class="form-control form-control-solid">
+                                        <option value="all">{{ app()->getLocale() == 'ar' ? 'كل الماتشات' : 'All' }}</option>
+                                        <option value="live">{{ app()->getLocale() == 'ar' ? 'جارية الآن' : 'Live' }}</option>
+                                        <option value="upcoming">{{ app()->getLocale() == 'ar' ? 'لم تبدأ بعد' : 'Upcoming' }}</option>
+                                        <option value="finished">{{ app()->getLocale() == 'ar' ? 'انتهت' : 'Finished' }}</option>
+                                        <option value="postponed">{{ app()->getLocale() == 'ar' ? 'مؤجلة / ملغاة' : 'Postponed / Cancelled' }}</option>
                                     </select>
                                 </div>
-                                <div class="col-md-3">
-                                    <select id="match_date_filter" class="form-control">
-                                        <option value="">كل الأوقات</option>
-                                        <option value="today">اليوم</option>
-                                        <option value="yesterday">أمس</option>
-                                        <option value="last7">آخر 7 أيام</option>
-                                        <option value="last30">آخر 30 يوم</option>
+                                <div class="col-md-3 col-sm-12">
+                                    <label class="font-weight-bold text-muted mb-1" for="match_date_filter">{{ app()->getLocale() == 'ar' ? 'التاريخ' : 'Date' }}</label>
+                                    <select id="match_date_filter" class="form-control form-control-solid">
+                                        <option value="">{{ app()->getLocale() == 'ar' ? 'كل الأوقات' : 'All' }}</option>
+                                        <option value="today">{{ app()->getLocale() == 'ar' ? 'اليوم' : 'Today' }}</option>
+                                        <option value="yesterday">{{ app()->getLocale() == 'ar' ? 'أمس' : 'Yesterday' }}</option>
+                                        <option value="last7">{{ app()->getLocale() == 'ar' ? 'آخر 7 أيام' : 'Last 7 days' }}</option>
+                                        <option value="last30">{{ app()->getLocale() == 'ar' ? 'آخر 30 يوم' : 'Last 30 days' }}</option>
                                     </select>
                                 </div>
-                                <div class="col-md-6">
-                                    <select id="match_competition_filter" class="form-control select2">
-                                        <option value="">كل البطولات</option>
+                                <div class="col-md-6 col-sm-12">
+                                    <label class="font-weight-bold text-muted mb-1" for="match_competition_filter">{{ app()->getLocale() == 'ar' ? 'البطولة' : 'Competition' }}</label>
+                                    <select id="match_competition_filter" class="form-control form-control-solid">
+                                        <option value="">{{ app()->getLocale() == 'ar' ? 'الكل' : 'All' }}</option>
                                         @foreach($competitions as $comp)
                                             <option value="{{$comp->id}}">{{ $comp->translate(app()->getLocale())?->name ?? $comp->translate('en')?->name ?? $comp->name }}</option>
                                         @endforeach
                                     </select>
                                 </div>
                             </div>
-                            <div class="row mb-3">
-                                <div class="col-md-6">
-                                    <input type="date" id="match_from_date" class="form-control" placeholder="من تاريخ">
+                            <div class="form-group mb-0">
+                                <label class="font-weight-bold text-muted mb-1" for="match_id">{{ __('site.match.name') }}</label>
+                                <div class="position-relative notif-match-search">
+                                    <span class="notif-match-search__icon">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7E8299" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="7"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                                    </span>
+                                    <select class="form-control form-control-solid" id="match_id" name="match_id"></select>
                                 </div>
-                                <div class="col-md-6">
-                                    <input type="date" id="match_to_date" class="form-control" placeholder="إلى تاريخ">
-                                </div>
+                                <small id="match_results_count" class="text-muted d-block mt-2"></small>
                             </div>
-                            <select class="form-control select2" id="match_id" name="match_id">
-                                    <option value=""></option>
-                                    @foreach($matches as $value)
-                                        @php
-                                            $t1 = $value->team1?->translate(app()->getLocale())?->name ?? $value->team1?->translate('en')?->name ?? '';
-                                            $t2 = $value->team2?->translate(app()->getLocale())?->name ?? $value->team2?->translate('en')?->name ?? '';
-                                            $comp = $value->competition?->translate(app()->getLocale())?->name ?? $value->competition?->translate('en')?->name ?? '';
-                                            $dt = $value->match_date ? \Carbon\Carbon::parse($value->match_date)->format('Y-m-d H:i') : '';
-                                        @endphp
-                                        <option value="{{$value->id}}" data-status="{{$value->status}}" data-comp="{{$value->competition_id}}" data-date="{{ $value->match_date ? $value->match_date->format('Y-m-d') : '' }}" data-datetime="{{$dt}}">
-                                            {{$t1}} vs {{$t2}}@if($comp) - {{$comp}}@endif @if($dt) [{{$dt}}]@endif ({{$value->status}})
-                                        </option>
-                                    @endforeach
-                                </select>
                             @error('match_id')
                             <div class="invalid-feedback" role="alert">
                                 <strong>{{ $message }}</strong>
@@ -143,32 +190,32 @@
 
         var avatar3 = new KTImageInput('kt_image_3');
 
-            function getStatusBadge(status) {
-                var map = {
-                    'NS': {text: 'لم تبدأ', color: '#3699FF'},
-                    'TBD': {text: 'لم تحدد', color: '#8950FC'},
-                    '1H': {text: 'الشوط الأول', color: '#F64E60'},
-                    'HT': {text: 'استراحة', color: '#FFA800'},
-                    '2H': {text: 'الشوط الثاني', color: '#F64E60'},
-                    'ET': {text: 'وقت إضافي', color: '#F64E60'},
-                    'P': {text: 'ركلات ترجيح', color: '#F64E60'},
-                    'PEN': {text: 'ركلات ترجيح', color: '#F64E60'},
-                    'FT': {text: 'انتهت', color: '#1BC5BD'},
-                    'AET': {text: 'انتهت بعد إضافي', color: '#1BC5BD'},
-                    'PST': {text: 'مؤجلة', color: '#B5B5C3'},
-                    'CANC': {text: 'ملغاة', color: '#B5B5C3'},
-                    'SUSP': {text: 'موقوفة', color: '#B5B5C3'},
-                    'ABD': {text: 'ألغيت', color: '#B5B5C3'},
-                    'AWD': {text: 'فوز بالانسحاب', color: '#B5B5C3'},
-                    'WO': {text: 'انسحاب', color: '#B5B5C3'},
-                };
-                var s = map[status] || {text: status, color: '#7E8299'};
-             
-                return '<span style="display:inline-block;padding:0 6px;border-radius:4px;font-size:10px;color:#fff;background:' + s.color + ';">' + s.text + '</span>';
-            }
-
             // Class definition
             var KTSelect2 = function() {
+
+            function getStatusBadge(status) {
+                var isAr = "{{ app()->getLocale() }}" === 'ar';
+                var map = {
+                    'NS': {text: isAr ? 'لم تبدأ' : 'Not Started', color: '#3699FF'},
+                    'TBD': {text: isAr ? 'لم تحدد' : 'TBD', color: '#8950FC'},
+                    '1H': {text: isAr ? 'الشوط الأول' : '1st Half', color: '#FF5C5C'},
+                    'HT': {text: isAr ? 'استراحة' : 'HT', color: '#FFA800'},
+                    '2H': {text: isAr ? 'الشوط الثاني' : '2nd Half', color: '#FF5C5C'},
+                    'ET': {text: isAr ? 'وقت إضافي' : 'ET', color: '#FF5C5C'},
+                    'P': {text: isAr ? 'ركلات ترجيح' : 'Penalties', color: '#FF5C5C'},
+                    'PEN': {text: isAr ? 'ركلات ترجيح' : 'Penalties', color: '#FF5C5C'},
+                    'FT': {text: isAr ? 'انتهت' : 'FT', color: '#1BC5BD'},
+                    'AET': {text: isAr ? 'انتهت بعد إضافي' : 'AET', color: '#1BC5BD'},
+                    'PST': {text: isAr ? 'مؤجلة' : 'Postponed', color: '#FFC542'},
+                    'CANC': {text: isAr ? 'ملغاة' : 'Cancelled', color: '#F64E60'},
+                    'SUSP': {text: isAr ? 'موقوفة' : 'Suspended', color: '#F64E60'},
+                    'ABD': {text: isAr ? 'ألغيت' : 'Abandoned', color: '#F64E60'},
+                    'AWD': {text: isAr ? 'فوز بالانسحاب' : 'AWD', color: '#D63384'},
+                    'WO': {text: isAr ? 'انسحاب' : 'WO', color: '#D63384'}
+                };
+                var s = map[status] || {text: status, color: '#7E8299'};
+                return '<span class="notif-status-badge" style="display:inline-flex;align-items:center;padding:2px 8px;border-radius:999px;font-size:10px;font-weight:600;color:#fff;background:' + s.color + ';white-space:nowrap;line-height:14px;">' + s.text + '</span>';
+            }
 
             function matchTemplate(data) {
                 if (data.loading) {
@@ -185,25 +232,27 @@
                 if (data.match_date) {
                     details.push(data.match_date);
                 }
+                var isAr2 = "{{ app()->getLocale() }}" === 'ar';
                 if (data.group) {
-                    details.push("الجولة: " + data.group);
+                    details.push((isAr2 ? "الجولة" : "Round") + ": " + data.group);
                 }
                 if (data.week !== undefined && data.week !== null && data.week !== '') {
-                    details.push("الأسبوع: " + data.week);
+                    details.push((isAr2 ? "الأسبوع" : "Week") + ": " + data.week);
                 }
                 if (data.score) {
-                    details.push("<strong>النتيجة: " + data.score + "</strong>");
+                    details.push("<strong>" + (isAr2 ? "النتيجة" : "Result") + ": " + data.score + "</strong>");
                 }
 
                 var badge = getStatusBadge(data.status);
-                var $container = $(
-                    '<div>' +
-                        '<div style="display:flex;align-items:center;gap:6px;font-weight:600;font-size:13px;">' + data.team1 + ' vs ' + data.team2 + ' ' + badge + '</div>' +
-                        '<div style="font-size:11px;color:#7E8299;margin-top:2px;">' + details.join(' | ') + '</div>' +
+                return $(
+                    '<div class="notif-match-result" style="padding:6px 4px;">' +
+                        '<div style="display:flex;align-items:center;justify-content:space-between;gap:8px;font-weight:600;font-size:13px;">' +
+                            '<span>' + data.team1 + ' vs ' + data.team2 + '</span>' +
+                            badge +
+                        '</div>' +
+                        (details.length ? '<div style="font-size:11px;color:#7E8299;margin-top:3px;">' + details.join(' | ') + '</div>' : '') +
                     '</div>'
                 );
-              
-                return $container;
             }
 
             // Private functions
@@ -213,9 +262,7 @@
                         localStorage.setItem('notif_match_filters', JSON.stringify({
                             status: $('#match_status_filter').val(),
                             date_filter: $('#match_date_filter').val(),
-                            competition_id: $('#match_competition_filter').val(),
-                            from: $('#match_from_date').val(),
-                            to: $('#match_to_date').val()
+                            competition_id: $('#match_competition_filter').val()
                         }));
                     } catch (e) {}
                 }
@@ -230,16 +277,20 @@
                             if (f.competition_id !== undefined) {
                                 $('#match_competition_filter').val(f.competition_id).trigger('change');
                             }
-                            if (f.from !== undefined) $('#match_from_date').val(f.from);
-                            if (f.to !== undefined) $('#match_to_date').val(f.to);
                         }
                     } catch (e) {}
                 }
 
+            $('#match_competition_filter').select2({
+                placeholder: "{{ app()->getLocale() == 'ar' ? 'الكل' : 'All' }}",
+                allowClear: true,
+                width: '100%'
+            });
+
                 loadMatchFilters();
 
                 $('#match_id').select2({
-                    placeholder: "ابحث باسم الفريق أو البطولة...",
+                    placeholder: @if(app()->getLocale() == 'ar') "ابحث باسم الفريق أو البطولة..." @else "Search by team or competition..." @endif,
                     allowClear: true,
                     minimumInputLength: 0,
                     ajax: {
@@ -252,13 +303,13 @@
                                 q: params.term,
                                 status: $('#match_status_filter').val(),
                                 date_filter: $('#match_date_filter').val(),
-                                competition_id: $('#match_competition_filter').val(),
-                                from: $('#match_from_date').val(),
-                                to: $('#match_to_date').val()
+                                competition_id: $('#match_competition_filter').val()
                             };
                         },
                         processResults: function (data) {
-                            $('#match_results_count').text(data.count ? 'تم العثور على ' + data.count + ' نتيجة' : '');
+                            var foundTxt = @if(app()->getLocale() == 'ar') "تم العثور على" @else "Found" @endif;
+                            var resultTxt = @if(app()->getLocale() == 'ar') "نتيجة" @else "result(s)" @endif;
+                            $('#match_results_count').text(data.count ? foundTxt + " " + data.count + " " + resultTxt : '');
                             return {
                                 results: data.results
                             };
