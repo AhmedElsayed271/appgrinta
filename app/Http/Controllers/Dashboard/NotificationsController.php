@@ -138,8 +138,7 @@ class NotificationsController extends Controller
             'team2.translations',
             'competition.translations',
             'translations',
-            'events' => fn($q) => $q->whereIn('status', ['goal', 'goal-normal goal', 'goal-penalty', 'goal-own goal'])
-                ->select('id', 'match_id', 'team_id', 'status'),
+            'events' => fn($q) => $q->select('id', 'match_id', 'team_id', 'status'),
         ]);
 
         if ($request->filled('q')) {
@@ -226,19 +225,34 @@ class NotificationsController extends Controller
 
             $score = null;
             if (in_array($m->status, ['FT', 'AET', 'PEN'])) {
-                $goalStatuses = ['goal', 'goal-normal goal', 'goal-penalty'];
                 $homeGoals = 0;
                 $awayGoals = 0;
                 if ($m->relationLoaded('events')) {
                     foreach ($m->events as $e) {
-                        if (in_array($e->status, $goalStatuses) && $e->team_id == $m->team1_id) {
-                            $homeGoals++;
-                        } elseif ($e->status === 'goal-own goal' && $e->team_id == $m->team2_id) {
-                            $homeGoals++;
-                        } elseif (in_array($e->status, $goalStatuses) && $e->team_id == $m->team2_id) {
-                            $awayGoals++;
-                        } elseif ($e->status === 'goal-own goal' && $e->team_id == $m->team1_id) {
-                            $awayGoals++;
+                        $s = strtolower((string) $e->status);
+                        $isGoal = str_starts_with($s, 'goal');
+                        if (!$isGoal) {
+                            continue;
+                        }
+                        $isOwn = strpos($s, 'own') !== false;
+                        $isPenalty = strpos($s, 'penalty') !== false;
+                        $isMissed = strpos($s, 'missed') !== false || strpos($s, 'cancelled') !== false || strpos($s, 'disallowed') !== false;
+                        if ($isMissed) {
+                            continue;
+                        }
+
+                        if ($isOwn) {
+                            if ($e->team_id == $m->team2_id) {
+                                $homeGoals++;
+                            } elseif ($e->team_id == $m->team1_id) {
+                                $awayGoals++;
+                            }
+                        } else {
+                            if ($e->team_id == $m->team1_id) {
+                                $homeGoals++;
+                            } elseif ($e->team_id == $m->team2_id) {
+                                $awayGoals++;
+                            }
                         }
                     }
                 }
