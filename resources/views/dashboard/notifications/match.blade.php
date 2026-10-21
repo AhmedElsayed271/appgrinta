@@ -163,7 +163,7 @@
                     'WO': {text: 'انسحاب', color: '#B5B5C3'},
                 };
                 var s = map[status] || {text: status, color: '#7E8299'};
-                return "";
+             
                 return '<span style="display:inline-block;padding:0 6px;border-radius:4px;font-size:10px;color:#fff;background:' + s.color + ';">' + s.text + '</span>';
             }
 
