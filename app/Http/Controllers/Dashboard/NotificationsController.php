@@ -224,33 +224,30 @@ class NotificationsController extends Controller
             $group = $m->translate($locale)?->group ?? $m->translate('ar')?->group ?? $m->translate('en')?->group;
 
             $score = null;
-            if (in_array($m->status, ['FT', 'AET', 'PEN'])) {
+            if (in_array($m->status, ['FT', 'AET', 'PEN', '1H', 'HT', '2H', 'ET', 'P'])) {
                 $homeGoals = 0;
                 $awayGoals = 0;
                 if ($m->relationLoaded('events')) {
                     foreach ($m->events as $e) {
                         $s = strtolower((string) $e->status);
-                        $isGoal = str_starts_with($s, 'goal');
-                        if (!$isGoal) {
+                        if (strpos($s, 'goal') === false) {
                             continue;
                         }
                         $isOwn = strpos($s, 'own') !== false;
-                        $isPenalty = strpos($s, 'penalty') !== false;
-                        $isMissed = strpos($s, 'missed') !== false || strpos($s, 'cancelled') !== false || strpos($s, 'disallowed') !== false;
-                        if ($isMissed) {
+                        $isMiss = strpos($s, 'miss') !== false || strpos($s, 'cancel') !== false || strpos($s, 'disallow') !== false || strpos($s, 'void') !== false;
+                        if ($isMiss) {
                             continue;
                         }
-
                         if ($isOwn) {
-                            if ($e->team_id == $m->team2_id) {
+                            if ((int) $e->team_id === (int) $m->team2_id) {
                                 $homeGoals++;
-                            } elseif ($e->team_id == $m->team1_id) {
+                            } elseif ((int) $e->team_id === (int) $m->team1_id) {
                                 $awayGoals++;
                             }
                         } else {
-                            if ($e->team_id == $m->team1_id) {
+                            if ((int) $e->team_id === (int) $m->team1_id) {
                                 $homeGoals++;
-                            } elseif ($e->team_id == $m->team2_id) {
+                            } elseif ((int) $e->team_id === (int) $m->team2_id) {
                                 $awayGoals++;
                             }
                         }
@@ -261,7 +258,7 @@ class NotificationsController extends Controller
 
             return [
                 'id'          => $m->id,
-                'text'        => $team1Name . ' vs ' . $team2Name . ($score ? ' (' . $score . ')' : ''),
+                'text'        => $team1Name . ' vs ' . $team2Name,
                 'team1'       => $team1Name,
                 'team2'       => $team2Name,
                 'competition' => $compName,

@@ -75,9 +75,14 @@ class UpdateMatchesEvents extends Command
             }
         }
 
-        // Remove players that have no name translation
+        // Remove players that have no name translation, but keep any player
+        // that still has match_events rows — deleting those players would
+        // cascade-wipe their goals (match_events.player_id is ON DELETE
+        // CASCADE) and every finished match score would break.
         $namedPlayerIds = PlayerTranslation::where('locale', 'en')->pluck('player_id')->toArray();
-        Player::whereNotIn('id', $namedPlayerIds)->each(fn($p) => $p->delete());
+        Player::whereNotIn('id', $namedPlayerIds)
+            ->whereNotIn('id', MatchEvent::select('player_id')->distinct())
+            ->each(fn($p) => $p->delete());
 
         Artisan::call('match:events');
 

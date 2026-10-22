@@ -282,7 +282,7 @@
                 }
 
             $('#match_competition_filter').select2({
-                placeholder: "{{ app()->getLocale() == 'ar' ? 'الكل' : 'All' }}",
+                placeholder: "{{ __('site.all') }}",
                 allowClear: true,
                 width: '100%'
             });
@@ -321,11 +321,7 @@
                         if (!data.id) {
                             return data.text;
                         }
-                        var sel = data.team1 + ' vs ' + data.team2;
-                        if (data.score) {
-                            sel += ' (' + data.score + ')';
-                        }
-                        return sel;
+                        return data.team1 + ' vs ' + data.team2;
                     },
                     escapeMarkup: function (markup) {
                         return markup;

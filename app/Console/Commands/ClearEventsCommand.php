@@ -2,12 +2,10 @@
 
 namespace App\Console\Commands;
 
-use App\Models\MatchEvent;
 use Illuminate\Console\Command;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Filesystem\Filesystem;
-use Illuminate\Support\Facades\Log; 
-
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 class ClearEventsCommand extends Command
 {
@@ -23,7 +21,7 @@ class ClearEventsCommand extends Command
      *
      * @var string
      */
-    protected $description = 'This command clears all events from database that have been sent as notifications and get players name that not recorded.';
+    protected $description = 'This command clears the in-app notifications generated from match events (goals / cards ...). The match_events rows themselves are never touched — they hold every match score.';
 
     /**
      * Create a new command instance.
@@ -43,15 +41,25 @@ class ClearEventsCommand extends Command
 
     public function handle()
     {
-        $deleted = MatchEvent::whereNotNull('event_type')
-            ->where('event_type', 'AUTO')
+        // Delete only the NOTIFICATIONS produced by match events. The
+        // match_events rows must stay:
+        //  - they are the only source of every match score (0-0 bug came
+        //    from deleting goals here), and
+        //  - their event_type = 'AUTO' marker is what stops the same event
+        //    from being pushed to clients twice.
+        // notification_translations rows go away automatically
+        // (ON DELETE CASCADE on notification_id).
+        $deleted = DB::table('notifications')
+            ->whereIn('type', ['goal', 'events'])
             ->delete();
 
         $file = new Filesystem;
         $file->cleanDirectory(public_path() . "/storage/vs_images/");
 
-        Log::info('ClearEvents: deleted ' . $deleted . ' events and cleared vs_images.');
-        $this->info('Cleared ' . $deleted . ' events and vs_images directory.');
+        Log::info('ClearEvents: deleted ' . $deleted . ' event notifications and cleared vs_images.');
+        $this->info('Cleared ' . $deleted . ' event notifications and vs_images directory.');
+
+        return 0;
     }
-    
+
 }

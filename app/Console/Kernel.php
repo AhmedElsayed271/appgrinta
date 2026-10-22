@@ -156,7 +156,8 @@ class Kernel extends ConsoleKernel
         // 6. DAILY — Cleanup
         // ─────────────────────────────────────────────────────────────────
 
-        // Purge AUTO MatchEvent rows + vs_images directory
+        // Purge event notifications (goal/events types) + vs_images directory.
+        // match_events rows are intentionally kept — they hold the scores.
         $schedule->command('clear:events')
             ->dailyAt('03:00')
             ->appendOutputTo(storage_path('logs/clear_events.log'));
