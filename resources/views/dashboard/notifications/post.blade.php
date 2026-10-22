@@ -20,7 +20,16 @@
                     @foreach (LaravelLocalization::getSupportedLocales() as $locale => $properties)
                         <div class="form-group">
                             <label for="{{$locale}}_name">@lang('site.'.$locale.'.name')</label>
-                            <input type="text" name="{{$locale}}[name]" class="form-control @error($locale.'.name') is-invalid @enderror" id="{{$locale}}_name" value="{{old($locale.'.name')}}" >
+                            <div class="input-group">
+                                <input type="text" name="{{$locale}}[name]" class="form-control @error($locale.'.name') is-invalid @enderror" id="{{$locale}}_name" value="{{old($locale.'.name')}}" dir="{{ in_array($locale, ['ar','he','fa','ur']) ? 'rtl' : 'ltr' }}" >
+                                @if($locale === 'en')
+                                    <div class="input-group-append">
+                                        <button type="button" class="btn btn-primary btn-translate" data-source="ar" data-target="en" data-field="name">
+                                            ترجمة
+                                        </button>
+                                    </div>
+                                @endif
+                            </div>
                             @error($locale.'.name')
                             <div class="invalid-feedback" role="alert">
                                 <strong>{{ $message }}</strong>
@@ -30,9 +39,14 @@
 
                         <div class="form-group">
                             <label for="{{$locale}}_description">{{__('site.'.$locale.'.description')}}</label>
-                            <textarea name="{{$locale}}[description]" class="summernote" id="{{$locale}}_description">
+                            <textarea name="{{$locale}}[description]" class="summernote" id="{{$locale}}_description" dir="{{ in_array($locale, ['ar','he','fa','ur']) ? 'rtl' : 'ltr' }}">
                                 {{old($locale.'.description')}}
                             </textarea>
+                            @if($locale === 'en')
+                                <button type="button" class="btn btn-primary btn-sm mt-2 btn-translate" data-source="ar" data-target="en" data-field="description">
+                                    ترجمة
+                                </button>
+                            @endif
                             @error($locale.'.description')
                             <div class="invalid-feedback" role="alert">
                                 <strong>{{ $message }}</strong>
@@ -152,6 +166,9 @@
                         }
                     }
                 });
+                $('#{{$locale}}_description').next('.note-editor').find('.note-editable')
+                    .attr('dir', '{{ in_array($locale, ['ar','he','fa','ur']) ? 'rtl' : 'ltr' }}')
+                    .css('text-align', '{{ in_array($locale, ['ar','he','fa','ur']) ? 'right' : 'left' }}');
                 @endforeach
             }
 
@@ -166,6 +183,53 @@
         jQuery(document).ready(function() {
             KTSummernoteDemo.init()
             KTSelect2.init();
+
+            $('.btn-translate').on('click', function () {
+                var source = $(this).data('source');
+                var target = $(this).data('target');
+                var field  = $(this).data('field');
+                var isHtml = field === 'description';
+                var $btn   = $(this);
+
+                var text = isHtml
+                    ? $('#' + source + '_' + field).summernote('code')
+                    : $('#' + source + '_' + field).val();
+
+                if (!text || (isHtml && text === '<p><br></p>')) {
+                    alert('اكتب المحتوى بالعربية أولاً');
+                    return;
+                }
+
+                $btn.prop('disabled', true).text('...');
+
+                $.ajax({
+                    url: '{{route('dashboard.translate')}}',
+                    type: 'POST',
+                    data: {
+                        _token: '{{csrf_token()}}',
+                        text: text,
+                        source: source,
+                        target: target
+                    },
+                    success: function (resp) {
+                        if (resp.success) {
+                            if (isHtml) {
+                                $('#' + target + '_' + field).summernote('code', resp.translation);
+                            } else {
+                                $('#' + target + '_' + field).val(resp.translation);
+                            }
+                        } else {
+                            alert(resp.message || 'فشلت الترجمة');
+                        }
+                    },
+                    error: function () {
+                        alert('حدث خطأ أثناء الترجمة');
+                    },
+                    complete: function () {
+                        $btn.prop('disabled', false).text('ترجمة');
+                    }
+                });
+            });
         });
 
 

@@ -253,7 +253,7 @@
             $(document).on('click','.load_players',function (e){
                 e.preventDefault();
                 $.notify(
-                    "تحميل اللاعبين",
+                    "load players",
                     {
                         animate: {
                             enter: 'animated bounce',

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" {{ \App\Classes\Theme\Metronic::printAttrs('html') }} {{ \App\Classes\Theme\Metronic::printClasses('html') }}>
+<html lang="{{ str_replace('_', '-', app()->getLocale()) }}" dir="{{ app()->getLocale() == 'ar' ? 'rtl' : 'ltr' }}" {{ \App\Classes\Theme\Metronic::printAttrs('html') }} {{ \App\Classes\Theme\Metronic::printClasses('html') }}>
     <head>
         <meta charset="utf-8"/>
 
