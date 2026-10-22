@@ -20,7 +20,7 @@ class RestoreMatchEvents extends Command
      * @var string
      */
     protected $signature = 'events:restore
-        {--days=60 : Only restore finished matches from the last N days}
+        {--days=60 : Only restore finished matches from the last N days (0 = ALL matches, any date)}
         {--limit=500 : Max number of fixtures to fetch (0 = no limit)}
         {--sleep=150 : Milliseconds to sleep between API calls}
         {--dry-run : Only list the matches that would be restored, no API calls}';
@@ -30,7 +30,7 @@ class RestoreMatchEvents extends Command
      *
      * @var string
      */
-    protected $description = 'Re-fetch finished-match events (goals, cards ...) from the football API to restore data deleted by the old clear:events command. Restored rows are marked AUTO so no notification is re-sent.';
+    protected $description = 'Re-fetch finished-match events (goals, cards ...) from the football API to restore data deleted by the old clear:events command. Use --days=0 for every match regardless of date. Restored rows are marked AUTO so no notification is re-sent.';
 
     /**
      * Execute the console command.
@@ -45,19 +45,23 @@ class RestoreMatchEvents extends Command
             return 1;
         }
 
-        $days  = max(1, (int) $this->option('days'));
+        $days  = (int) $this->option('days');
         $limit = max(0, (int) $this->option('limit'));
         $sleep = max(0, (int) $this->option('sleep'));
         $dry   = (bool) $this->option('dry-run');
 
         // Finished matches without any goal event — their score is currently
         // 0-0 because the old clear:events command deleted the goals.
+        // --days=0 restores every match in the table, regardless of date.
         $query = Matche::query()
             ->whereNotNull('fixture_id')
             ->whereIn('status', ['FT', 'AET', 'PEN'])
-            ->where('match_date', '>=', now()->subDays($days))
             ->whereDoesntHave('events', fn ($q) => $q->where('status', 'like', 'goal%'))
             ->orderByDesc('match_date');
+
+        if ($days > 0) {
+            $query->where('match_date', '>=', now()->subDays($days));
+        }
 
         if ($limit > 0) {
             $query->limit($limit);
@@ -65,7 +69,7 @@ class RestoreMatchEvents extends Command
 
         $matches = $query->get(['id', 'fixture_id', 'team1_id', 'team2_id', 'match_date', 'status']);
 
-        $this->info('Matches to restore: ' . $matches->count() . ' (last ' . $days . ' days)');
+        $this->info('Matches to restore: ' . $matches->count() . ($days > 0 ? ' (last ' . $days . ' days)' : ' (ALL dates)'));
 
         if ($dry) {
             foreach ($matches->take(20) as $m) {
