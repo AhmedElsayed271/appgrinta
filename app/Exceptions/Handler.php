@@ -8,8 +8,10 @@ use Illuminate\Auth\AuthenticationException;
 use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
+use Illuminate\Http\Exceptions\ThrottleRequestsException;
 use Illuminate\Http\Request;
 use Illuminate\Session\TokenMismatchException;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Validation\ValidationException;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\HttpKernel\Exception\HttpException;
@@ -81,6 +83,9 @@ class Handler extends ExceptionHandler
         if ($e instanceof MethodNotAllowedHttpException){
             return $this->errorResponse('The specified method for this request is invalid',405);
         }
+        if ($e instanceof ThrottleRequestsException){
+            $this->logRateLimit($request, $e);
+        }
         if ($e instanceof HttpException){
             return $this->errorResponse($e->getMessage(),$e->getStatusCode());
         }
@@ -116,6 +121,36 @@ class Handler extends ExceptionHandler
             return redirect()->guest('login');
         }
         return $this->errorResponse('unauthenticated.',401);
+    }
+
+    /**
+     * Log every 429 so we can tell which client / endpoint exhausts the bucket.
+     */
+    private function logRateLimit(Request $request, ThrottleRequestsException $e): void
+    {
+        try {
+            $apiUser = null;
+
+            try {
+                $apiUser = $request->user('api');
+            } catch (\Throwable $ignored) {
+                // The "api" guard may not be resolvable for this request.
+            }
+
+            Log::channel('rate_limit')->warning('Rate limit exceeded (429)', [
+                'method'     => $request->method(),
+                'url'        => $request->fullUrl(),
+                'path'       => $request->path(),
+                'route'      => optional($request->route())->getName(),
+                'ip'         => $request->ip(),
+                'user_id'    => optional($apiUser)->getAuthIdentifier()
+                    ?? optional($request->user())->getAuthIdentifier(),
+                'user_agent' => $request->userAgent(),
+                'headers'    => $e->getHeaders(),
+            ]);
+        } catch (\Throwable $ignored) {
+            // Logging must never break the response itself.
+        }
     }
 
     private function isFrontend(Request $request): bool
