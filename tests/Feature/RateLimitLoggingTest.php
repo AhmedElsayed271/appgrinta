@@ -54,10 +54,14 @@ class RateLimitLoggingTest extends TestCase
 
         $this->get('/__test/rate-limited')->assertOk();
 
-        $this->get('/__test/rate-limited')
-            ->assertStatus(429)
-            ->assertJsonPath('code', 429)
-            ->assertJsonPath('error', 'Too Many Attempts.');
+        $blocked = $this->get('/__test/rate-limited');
+
+        $blocked->assertStatus(429)
+            ->assertJsonPath('code', 429);
+
+        $this->assertStringContainsString('Too many requests', $blocked->json('error'));
+        $this->assertSame('1', $blocked->headers->get('X-RateLimit-Limit'));
+        $this->assertGreaterThan(0, (int) $blocked->json('retry_after'));
 
         $this->assertFileExists($this->logPath, 'The rate limit log file was not written.');
 

@@ -28,7 +28,7 @@ Route::middleware('auth:api')->get('/user', function (Request $request) {
 });
 
 // Auth Routes
-Route::post('login',        [AuthController::class, 'login']);
+Route::post('login',        [AuthController::class, 'login'])->middleware('throttle:login');
 // Route::post('guest',        [GuestController::class, 'storeGuest']);
 Route::post('social',       [AuthController::class, 'social']);
 Route::post('google',       [AuthController::class, 'google']);

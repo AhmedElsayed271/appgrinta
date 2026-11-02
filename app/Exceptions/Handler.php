@@ -2,6 +2,7 @@
 
 namespace App\Exceptions;
 
+use App\Classes\CustomResponseToShow;
 use App\Traits\ApiResponser;
 use Illuminate\Auth\Access\AuthorizationException;
 use Illuminate\Auth\AuthenticationException;
@@ -9,6 +10,7 @@ use Illuminate\Database\Eloquent\ModelNotFoundException;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Exceptions\Handler as ExceptionHandler;
 use Illuminate\Http\Exceptions\ThrottleRequestsException;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Session\TokenMismatchException;
 use Illuminate\Support\Facades\Log;
@@ -85,6 +87,8 @@ class Handler extends ExceptionHandler
         }
         if ($e instanceof ThrottleRequestsException){
             $this->logRateLimit($request, $e);
+
+            return $this->rateLimitedResponse($request, $e);
         }
         if ($e instanceof HttpException){
             return $this->errorResponse($e->getMessage(),$e->getStatusCode());
@@ -151,6 +155,36 @@ class Handler extends ExceptionHandler
         } catch (\Throwable $ignored) {
             // Logging must never break the response itself.
         }
+    }
+
+    /**
+     * 429 response that keeps the throttle headers (Retry-After, X-RateLimit-*)
+     * and mirrors the wait time in the JSON body so the mobile app can start a
+     * countdown without parsing headers.
+     */
+    private function rateLimitedResponse(Request $request, ThrottleRequestsException $e): JsonResponse
+    {
+        $headers = $e->getHeaders();
+
+        $retryAfter = (int) ($headers['Retry-After'] ?? 60);
+        $limit      = (int) ($headers['X-RateLimit-Limit'] ?? 0);
+        $remaining  = (int) ($headers['X-RateLimit-Remaining'] ?? 0);
+
+        $key = $request->is('api/v1/login') ? 'rate_limit.login' : 'rate_limit.generic';
+
+        $message = __($key, ['seconds' => $retryAfter]);
+
+        $body = array_merge(
+            (array) new CustomResponseToShow(false, 'error', null, null, $message, 429),
+            [
+                'retry_after'  => $retryAfter,
+                'seconds_left' => $retryAfter,
+                'limit'        => $limit,
+                'remaining'    => $remaining,
+            ]
+        );
+
+        return response()->json($body, 429, $headers);
     }
 
     private function isFrontend(Request $request): bool
