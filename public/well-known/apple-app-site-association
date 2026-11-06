@@ -1,0 +1,20 @@
+
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": [
+          "6RPWXA5835.elsawy.Grinta"
+        ],
+        "components": [
+          {
+            "/": "/post/*"
+          },
+          {
+            "/": "/league/*"
+          }
+        ]
+      }
+    ]
+  }
+}
