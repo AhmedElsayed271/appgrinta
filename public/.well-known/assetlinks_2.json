@@ -1,0 +1,15 @@
+[
+  {
+    "relation": [
+      "delegate_permission/common.handle_all_urls"
+    ],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.muhmmad.grinta",
+      "sha256_cert_fingerprints": [
+        "12:F0:F3:90:99:3C:D1:21:93:D1:1E:EF:C1:24:ED:99:8F:80:1B:01:82:35:A1:D1:E0:F5:15:C5:5D:9F:4A:BB",
+        "33:56:A2:08:44:59:F5:E1:33:4F:8F:0A:62:78:F6:4B:5D:17:40:19:B9:93:0E:D7:29:B1:D1:62:1D:8D:E1:D5"
+      ]
+    }
+  }
+]
