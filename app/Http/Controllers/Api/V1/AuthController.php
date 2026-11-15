@@ -14,6 +14,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
@@ -26,11 +27,19 @@ class AuthController extends Controller
     }
     public function login (Request $request): \Illuminate\Http\JsonResponse
     {
+        // "timezone" is optional on login: the mobile app sends it when the
+        // client did not pick one while registering, so the stored value gets
+        // corrected on the first login. Missing/empty means "keep the current".
+        $request->merge([
+            'timezone' => $request->filled('timezone') ? $request->input('timezone') : null,
+        ]);
+
         $rules= [
             'email' => 'required|string|max:255',
             'password' => 'required|string|min:6',
             'fb_token'=>['required'],
-            'locale'=>['required']
+            'locale'=>['required'],
+            'timezone'=>['nullable','timezone']
         ];
         $request->validate($rules);
         if($request->input('locale') != "en" && $request->input('locale') != "ar"){
@@ -42,7 +51,11 @@ class AuthController extends Controller
         }
         if (Hash::check($request->input('password'), $client->password)) {
             $token = now() .Str::random(60);
-            $client->update(['api_token'=>$token,'fb_token'=>$request->input('fb_token'),'locale'=>$request->input('locale')]);
+            $data = ['api_token'=>$token,'fb_token'=>$request->input('fb_token'),'locale'=>$request->input('locale')];
+            if ($request->filled('timezone')) {
+                $data['timezone'] = $request->input('timezone');
+            }
+            $client->update($data);
             $response = ['token' => $token,'client'=>$client];
             return $this->successResponse($response, 200);
         } else {
@@ -53,18 +66,29 @@ class AuthController extends Controller
     public function register(Request $request): \Illuminate\Http\JsonResponse
     {   
 
+        // Optional: older app versions do not send it, so the column default
+        // (Africa/Cairo) stays in place until the client logs in with one.
+        $request->merge([
+            'timezone' => $request->filled('timezone') ? $request->input('timezone') : null,
+        ]);
+
         $rules=[
             'full_name'=>['required'],
             'email'=> ['required', 'string', 'email', 'max:255', 'unique:clients'],
             'password'=>['required','string', 'min:8', 'confirmed'],
             'fb_token'=>['required'],
-            'locale'=>['required']
+            'locale'=>['required'],
+            'timezone'=>['nullable','timezone']
         ];
         $request->validate($rules);
         if($request->input('locale') != "en" && $request->input('locale') != "ar"){
             $request->locale = "en";
         }
         $request_data=$request->except(['password']);
+        unset($request_data['timezone']);
+        if ($request->filled('timezone')) {
+            $request_data['timezone'] = $request->input('timezone');
+        }
         $request_data['password']=Hash::make($request->input('password'));
         $request_data['fb_token']=$request->input('fb_token');
         $request_data['locale']=$request->input('locale');
@@ -98,6 +122,7 @@ class AuthController extends Controller
         $socialId = $request->input('social_id');
         $email    = $request->input('email');
         $fullName = $request->input('full_name');
+        $emailIsVerified = false;
 
         // Extract user data from the Google token (id_token or access_token)
         if ($request->input('provider') === 'google') {
@@ -108,6 +133,7 @@ class AuthController extends Controller
             $socialId = $googleData['sub'];
             $email    = $googleData['email'] ?? $email;
             $fullName = $googleData['name'] ?? $fullName;
+            $emailIsVerified = !blank($googleData['email'] ?? null);
         }
 
         if ($socialId === null) {
@@ -120,6 +146,7 @@ class AuthController extends Controller
         $client = Client::query()->where('social_id', $socialId)->first();
         if (!is_null($client)) {
             $isAlreadyRegistered = true;
+            $this->backfillEmail($client, $email, $emailIsVerified);
         }
 
         // 2) Same email already has an account -> link the social login to it and log in
@@ -163,6 +190,50 @@ class AuthController extends Controller
 
         $response = ['token' => $token, 'registered_client' => $isAlreadyRegistered, 'client' => $client];
         return $this->successResponse($response, 200);
+    }
+
+    /**
+     * Save the email of an already-registered social account when it is still
+     * missing. Older app versions created those rows without an email, and the
+     * email is only available at login time (Google token / app payload), so
+     * a login is the only place it can be recovered.
+     */
+    private function backfillEmail(Client $client, ?string $email, bool $verified): void
+    {
+        $email = is_string($email) ? trim($email) : null;
+
+        if (blank($email) || !blank($client->email)) {
+            return;
+        }
+
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            return;
+        }
+
+        // Never break the UNIQUE index: when another client already owns this
+        // email it is a duplicate account and must go through the merge flow.
+        $ownerId = Client::query()
+            ->where('email', $email)
+            ->whereKeyNot($client->getKey())
+            ->value('id');
+
+        if ($ownerId !== null) {
+            Log::warning('Social login: email backfill skipped, email already in use', [
+                'client_id' => $client->getKey(),
+                'email'     => $email,
+                'owner_id'  => $ownerId,
+            ]);
+
+            return;
+        }
+
+        $data = ['email' => $email];
+
+        if ($verified && $client->email_verified_at === null) {
+            $data['email_verified_at'] = now();
+        }
+
+        $client->update($data);
     }
 
     private function googleClientIds(): array
@@ -246,10 +317,15 @@ class AuthController extends Controller
         $socialId   = $payload['sub'];
         $email      = $payload['email'] ?? $request->input('email');
         $fullName   = $payload['name'] ?? $request->input('full_name');
+        $emailIsVerified = !blank($payload['email'] ?? null);
 
         // 1) Already registered with this social_id -> just log in
         $client = Client::query()->where('social_id', $socialId)->first();
         $isAlreadyRegistered = !is_null($client);
+
+        if ($isAlreadyRegistered) {
+            $this->backfillEmail($client, $email, $emailIsVerified);
+        }
 
         // 2) Same email has a password account -> link social_id to it
         if ($client === null && $email !== null) {
