@@ -1,3 +1,11 @@
+# Apple/Google require a JSON content type for association files.
+# The AASA file has no extension, so Apache would otherwise serve it as octet-stream.
+<IfModule mod_mime.c>
+    <FilesMatch "^(apple-app-site-association|assetlinks\.json)$">
+        ForceType application/json
+    </FilesMatch>
+</IfModule>
+
 <IfModule mod_rewrite.c>
     <IfModule mod_negotiation.c>
         Options -MultiViews -Indexes

@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\V1\ClientController;
 use App\Http\Controllers\Api\V1\ClientNotificationsController;
 use App\Http\Controllers\Api\V1\CompetitionsController;
 use App\Http\Controllers\Api\V1\CountriesController;
+use App\Http\Controllers\Api\V1\DeepLinksController;
 use App\Http\Controllers\Api\V1\GuestController;
 use App\Http\Controllers\Api\V1\MatchesController;
 use App\Http\Controllers\Api\V1\NotificationController;
@@ -38,6 +39,12 @@ Route::delete('delete-account', [AuthController::class, 'deleteAccount'])->middl
 Route::post('biometric/toggle', [AuthController::class, 'toggleBiometric'])->middleware('auth:api');
 Route::post('biometric/login', [AuthController::class, 'biometricLogin']);
 Route::post('verify_email', [AuthController::class, 'verifiedEmail']);
+
+// Self-hosted dynamic links (public: the app resolves codes before login).
+Route::post('deeplinks',            [DeepLinksController::class, 'store'])->middleware('throttle:deeplink-create');
+Route::get('deeplinks/resolve',     [DeepLinksController::class, 'resolve']);
+Route::post('deeplinks/click',      [DeepLinksController::class, 'click']);
+Route::post('deeplinks/claim',      [DeepLinksController::class, 'claim'])->middleware('throttle:deeplink-claim');
 
 Route::middleware('auth:api')->group(function() {
 

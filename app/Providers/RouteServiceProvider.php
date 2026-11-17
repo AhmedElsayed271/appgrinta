@@ -56,5 +56,15 @@ class RouteServiceProvider extends ServiceProvider
         RateLimiter::for('login', function (Request $request) {
             return Limit::perMinute(10)->by($request->ip());
         });
+
+        // Dynamic-link claim is used by the iOS manual claim flow. A short
+        // window limits code guessing without blocking a real first-run user.
+        RateLimiter::for('deeplink-claim', function (Request $request) {
+            return Limit::perMinute((int) config('deeplinks.claim_limit', 10))->by($request->ip());
+        });
+
+        RateLimiter::for('deeplink-create', function (Request $request) {
+            return Limit::perMinute((int) config('deeplinks.create_limit', 30))->by($request->ip());
+        });
     }
 }

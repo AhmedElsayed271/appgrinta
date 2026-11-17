@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\V1\CategoriesController;
+use App\Http\Controllers\DeepLinkController;
 use App\Models\Competition;
 use Illuminate\Support\Facades\Route;
 use App\Traits\NotificationOfMatchesTrait;
@@ -28,6 +29,12 @@ use Illuminate\Support\Facades\Mail;
 Route::get('/', function () {
     return redirect(LaravelLocalization::localizeURL('/'));
 });
+
+// Self-hosted dynamic links. Kept outside the localization group so App Links
+// and Universal Links can open /l/{code}, /post/{id} and /league/{id} directly.
+Route::get('/l/{code}',     [DeepLinkController::class, 'landing'])->name('deeplinks.landing');
+Route::get('/post/{post}',  [DeepLinkController::class, 'post'])->name('deeplinks.post');
+Route::get('/league/{league}', [DeepLinkController::class, 'league'])->name('deeplinks.league');
 
 Route::group([
     'prefix' => LaravelLocalization::setLocale(),
