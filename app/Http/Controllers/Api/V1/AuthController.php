@@ -106,6 +106,12 @@ class AuthController extends Controller
 
     public function social(Request $request): JsonResponse
     {
+        // Optional, like on login: the mobile app can correct the timezone at
+        // any social login (including for accounts created by older versions).
+        $request->merge([
+            'timezone' => $request->filled('timezone') ? $request->input('timezone') : null,
+        ]);
+
         $rules = [
             'provider'   => ['required', 'in:google,facebook,apple'],
             'token'      => ['required'],
@@ -114,6 +120,7 @@ class AuthController extends Controller
             'full_name'  => ['nullable', 'string'],
             'fb_token'   => ['nullable'],
             'locale'     => ['nullable'],
+            'timezone'   => ['nullable', 'timezone'],
         ];
         $request->validate($rules);
 
@@ -182,11 +189,17 @@ class AuthController extends Controller
         }
 
         $token = now() . Str::random(60);
-        $client->update([
+        $data = [
             'api_token' => $token,
             'locale'    => $locale,
             'fb_token'  => $request->input('fb_token'),
-        ]);
+        ];
+
+        if ($request->filled('timezone')) {
+            $data['timezone'] = $request->input('timezone');
+        }
+
+        $client->update($data);
 
         $response = ['token' => $token, 'registered_client' => $isAlreadyRegistered, 'client' => $client];
         return $this->successResponse($response, 200);
