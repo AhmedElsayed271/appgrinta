@@ -4,7 +4,9 @@ namespace App\Services;
 
 use App\Models\Competition;
 use App\Models\DeepLink;
+use App\Models\Matche;
 use App\Models\Post;
+use App\Models\Team;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
@@ -19,7 +21,25 @@ class DeepLinkService
     public const TYPES = [
         'post'   => Post::class,
         'league' => Competition::class,
+        'match'  => Matche::class,
+        'team'   => Team::class,
     ];
+
+    /**
+     * `screen` is a navigation field, not a link type. Values follow the
+     * push-notification contract: 1 = league/team, 2 = match lineup tab.
+     * Posts have no screen value and omit the key.
+     */
+    private const SCREEN_BY_TYPE = [
+        'league' => '1',
+        'team'   => '1',
+        'match'  => '2',
+    ];
+
+    public function allowedTypes(): array
+    {
+        return array_keys(self::TYPES);
+    }
 
     public function normalizeCode(?string $code): ?string
     {
@@ -51,25 +71,43 @@ class DeepLinkService
     /**
      * A target is public only when the content exists and, for posts, is
      * already published. Scheduled posts must not leak through shared links.
+     *
+     * For teams both the internal id and the external Football-API team_id are
+     * accepted, matching TeamsController::show().
      */
     public function target(string $type, int $id): ?Model
     {
+        if (!array_key_exists($type, self::TYPES)) {
+            return null;
+        }
+
         if ($type === 'post') {
             return Post::query()->published()->find($id);
         }
 
-        if ($type === 'league') {
-            return Competition::query()->find($id);
+        if ($type === 'team') {
+            // Prefer the internal id; an OR query could otherwise return a
+            // different team whose external team_id equals this internal id.
+            return Team::query()->find($id)
+                ?? Team::query()->where('team_id', $id)->first();
         }
 
-        return null;
+        $class = self::TYPES[$type];
+
+        return $class::query()->find($id);
     }
 
     public function create(string $type, int $targetId): ?DeepLink
     {
-        if (!array_key_exists($type, self::TYPES) || !$this->target($type, $targetId)) {
+        $target = $this->target($type, $targetId);
+
+        if (!$target) {
             return null;
         }
+
+        // Always store the internal id so an external team id and the
+        // matching database id reuse the same code.
+        $targetId = (int) $target->id;
 
         return DeepLink::query()->firstOrCreate(
             ['target_type' => $type, 'target_id' => $targetId],
@@ -127,34 +165,31 @@ class DeepLinkService
 
     public function viewDataForTarget(string $type, Model $target): array
     {
-        $id   = (int) $target->id;
-        $path = $this->targetPath($type, $id);
+        $id = (int) $target->id;
 
-        return [
-            'title'        => $this->titleFor($target),
-            'description'  => $this->descriptionFor($target),
-            'image'        => $this->imageFor($target),
-            'shareUrl'     => $this->webUrl($path),
-            'appUrl'       => $this->appUrl(['type' => $type, 'id' => $id]),
-            'playUrl'      => $this->playUrl(null),
-            'appStoreUrl'  => $this->appStoreUrl(),
-            'claimCode'    => null,
-        ];
+        return $this->viewDataForLink([
+            'title'         => $this->titleFor($target),
+            'description'   => $this->descriptionFor($target, $type),
+            'image'         => $this->imageFor($target),
+            'share_url'     => $this->webUrl($this->targetPath($type, $id)),
+            'app_url'       => $this->appUrl(['type' => $type, 'id' => $id]),
+            'play_url'      => $this->playUrl(null),
+            'app_store_url' => $this->appStoreUrl(),
+            'code'          => null,
+        ]);
     }
 
     private function payload(DeepLink $link, Model $target): array
     {
         $type = $link->target_type;
-        $id   = (int) $link->target_id;
+        $id   = (int) $target->id;
         $url  = $this->webUrl('/l/' . $link->code);
 
-        return [
+        $data = [
             'code'          => $link->code,
             'claim_code'    => $link->code,
-            'target_type'   => $type,
-            'target_id'     => $id,
             'title'         => $this->titleFor($target),
-            'description'   => $this->descriptionFor($target),
+            'description'   => $this->descriptionFor($target, $type),
             'image'         => $this->imageFor($target),
             'path'          => $this->targetPath($type, $id),
             'web_url'       => $url,
@@ -163,6 +198,35 @@ class DeepLinkService
             'play_url'      => $this->playUrl($link->code),
             'app_store_url' => $this->appStoreUrl(),
         ];
+
+        // No target_type/target_id: the app navigates with `screen` + the
+        // concrete id keys. Keys that do not apply are omitted entirely.
+        return $data + $this->navigationFor($type, $target);
+    }
+
+    private function navigationFor(string $type, Model $target): array
+    {
+        $ids = match ($type) {
+            'post'   => ['post_id' => (int) $target->id],
+            'league' => ['competition_id' => (int) $target->id],
+            'team'   => ['team_id' => (int) $target->team_id],
+            'match'  => [
+                'match_id'       => (int) $target->id,
+                'fixture_id'     => (int) $target->fixture_id,
+                'home_team_id'   => (int) $target->team1_id,
+                'away_team_id'   => (int) $target->team2_id,
+                'competition_id' => (int) $target->competition_id,
+                'match_date'     => $target->match_date?->toIso8601String(),
+                'status'         => (string) $target->status,
+            ],
+            default  => [],
+        };
+
+        $ids = array_filter($ids, static fn ($value) => $value !== null && $value !== '' && $value !== 0);
+
+        $screen = self::SCREEN_BY_TYPE[$type] ?? null;
+
+        return ($screen !== null ? ['screen' => $screen] : []) + $ids;
     }
 
     private function generateCode(): string
@@ -176,6 +240,14 @@ class DeepLinkService
 
     private function titleFor(Model $target): string
     {
+        if ($target instanceof Matche) {
+            $home  = $this->teamName($target->team1);
+            $away  = $this->teamName($target->team2);
+            $title = trim($home . ($home !== '' && $away !== '' ? ' vs ' : '') . $away);
+
+            return $title !== '' ? $title : 'Grinta';
+        }
+
         $name = $target->translate(app()->getLocale())?->name;
 
         if (empty($name)) {
@@ -185,12 +257,33 @@ class DeepLinkService
         return $name ?: 'Grinta';
     }
 
-    private function descriptionFor(Model $target): string
+    private function teamName(?Team $team): string
+    {
+        if (!$team) {
+            return '';
+        }
+
+        $name = $team->translate(app()->getLocale())?->name;
+
+        if (empty($name)) {
+            $name = $team->translate('en')?->name;
+        }
+
+        return (string) $name;
+    }
+
+    private function descriptionFor(Model $target, string $type): string
     {
         if ($target instanceof Post) {
             $description = $target->translate(app()->getLocale())?->description;
+        } elseif ($target instanceof Matche) {
+            $description = 'Grinta - ' . $this->titleFor($target);
+
+            if ($target->match_date) {
+                $description .= ' - ' . $target->match_date->format('Y-m-d H:i');
+            }
         } else {
-            $description = 'Grinta - ' . ($this->titleFor($target));
+            $description = 'Grinta - ' . $this->titleFor($target);
         }
 
         return Str::limit(trim(strip_tags((string) $description)), 160);
@@ -207,7 +300,13 @@ class DeepLinkService
 
     private function targetPath(string $type, int $id): string
     {
-        return $type === 'post' ? '/post/' . $id : '/league/' . $id;
+        return match ($type) {
+            'post'   => '/post/' . $id,
+            'league' => '/league/' . $id,
+            'match'  => '/match/' . $id,
+            'team'   => '/team/' . $id,
+            default  => '/l/' . $id,
+        };
     }
 
     private function webUrl(string $path): string

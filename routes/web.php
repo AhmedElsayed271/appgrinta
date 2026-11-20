@@ -31,10 +31,12 @@ Route::get('/', function () {
 });
 
 // Self-hosted dynamic links. Kept outside the localization group so App Links
-// and Universal Links can open /l/{code}, /post/{id} and /league/{id} directly.
-Route::get('/l/{code}',     [DeepLinkController::class, 'landing'])->name('deeplinks.landing');
-Route::get('/post/{post}',  [DeepLinkController::class, 'post'])->name('deeplinks.post');
-Route::get('/league/{league}', [DeepLinkController::class, 'league'])->name('deeplinks.league');
+// and Universal Links can open these paths directly.
+Route::get('/l/{code}',       [DeepLinkController::class, 'landing'])->name('deeplinks.landing');
+Route::get('/post/{post}',    [DeepLinkController::class, 'post'])->name('deeplinks.post');
+Route::get('/league/{league}',[DeepLinkController::class, 'league'])->name('deeplinks.league');
+Route::get('/match/{match}',  [DeepLinkController::class, 'match'])->name('deeplinks.match');
+Route::get('/team/{team}',    [DeepLinkController::class, 'team'])->name('deeplinks.team');
 
 Route::group([
     'prefix' => LaravelLocalization::setLocale(),

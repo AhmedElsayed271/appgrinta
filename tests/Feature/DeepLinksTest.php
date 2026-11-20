@@ -7,8 +7,11 @@ use App\Models\Competition;
 use App\Models\CompetitionTranslation;
 use App\Models\Country;
 use App\Models\DeepLink;
+use App\Models\Matche;
 use App\Models\Post;
 use App\Models\PostTranslation;
+use App\Models\Team;
+use App\Models\TeamTranslation;
 use Illuminate\Foundation\Testing\DatabaseTransactions;
 use Illuminate\Support\Facades\Cache;
 use Tests\TestCase;
@@ -66,6 +69,9 @@ class DeepLinksTest extends TestCase
         $this->assertContains('/l/*', $paths);
         $this->assertContains('/post/*', $paths);
         $this->assertContains('/league/*', $paths);
+        $this->assertContains('/match/*', $paths);
+        $this->assertContains('/team/*', $paths);
+        $this->assertNotContains('/screen/*', $paths);
         $this->assertContains('6RPWXA5835.elsawy.Grinta', $data['applinks']['details'][0]['appIDs']);
 
         $htaccess = file_get_contents(public_path('.htaccess'));
@@ -92,9 +98,11 @@ class DeepLinksTest extends TestCase
             ->assertJsonPath('isSuccess', true)
             ->json('data');
 
-        $this->assertSame('post', $resolved['target_type']);
-        $this->assertSame($post->id, $resolved['target_id']);
+        $this->assertSame($post->id, $resolved['post_id']);
         $this->assertSame('Test post', $resolved['title']);
+        $this->assertArrayNotHasKey('target_type', $resolved);
+        $this->assertArrayNotHasKey('target_id', $resolved);
+        $this->assertArrayNotHasKey('screen', $resolved);
         $this->assertSame('/l/' . $code, parse_url($resolved['web_url'], PHP_URL_PATH));
         $this->assertStringNotContainsString('evil.example', json_encode($resolved));
     }
@@ -108,13 +116,76 @@ class DeepLinksTest extends TestCase
             ->assertStatus(200)
             ->json('data');
 
-        $this->assertSame('league', $clicked['target_type']);
-        $this->assertSame($league->id, $clicked['target_id']);
+        $this->assertSame($league->id, $clicked['competition_id']);
+        $this->assertSame('1', $clicked['screen']);
         $this->assertSame('Test league', $clicked['title']);
+        $this->assertArrayNotHasKey('target_type', $clicked);
+        $this->assertArrayNotHasKey('target_id', $clicked);
 
         $link = DeepLink::query()->where('code', $code)->firstOrFail();
         $this->assertSame(1, $link->clicks_count);
         $this->assertNotNull($link->last_clicked_at);
+    }
+
+    public function test_it_creates_and_resolves_a_match_link(): void
+    {
+        $match = $this->createMatch();
+        $code  = $this->createLink('match', $match->id);
+
+        $resolved = $this->getJson('/api/v1/deeplinks/resolve?code=' . $code)
+            ->assertStatus(200)
+            ->json('data');
+
+        $this->assertSame($match->id, $resolved['match_id']);
+        $this->assertSame('2', $resolved['screen']);
+        $this->assertSame(778899, $resolved['fixture_id']);
+        $this->assertSame($match->team1_id, $resolved['home_team_id']);
+        $this->assertSame($match->team2_id, $resolved['away_team_id']);
+        $this->assertSame($match->competition_id, $resolved['competition_id']);
+        $this->assertSame('pending', $resolved['status']);
+        $this->assertSame('Home FC vs Away FC', $resolved['title']);
+        $this->assertSame('/match/' . $match->id, $resolved['path']);
+        $this->assertArrayNotHasKey('target_type', $resolved);
+        $this->assertArrayNotHasKey('target_id', $resolved);
+        $this->assertArrayNotHasKey('post_id', $resolved);
+        $this->assertArrayNotHasKey('team_id', $resolved);
+    }
+
+    public function test_it_creates_and_resolves_a_team_link_by_internal_or_external_id(): void
+    {
+        // A value above the internal id range keeps this deterministic on a
+        // database that already contains real teams.
+        $externalId = 2147483000;
+        $team = $this->createTeam('Al Ahly', $externalId);
+        $code = $this->createLink('team', $team->id);
+
+        $resolved = $this->getJson('/api/v1/deeplinks/resolve?code=' . $code)
+            ->assertStatus(200)
+            ->json('data');
+
+        $this->assertSame($externalId, $resolved['team_id']);
+        $this->assertSame('1', $resolved['screen']);
+        $this->assertSame('Al Ahly', $resolved['title']);
+        $this->assertSame('/team/' . $team->id, $resolved['path']);
+        $this->assertArrayNotHasKey('target_type', $resolved);
+        $this->assertArrayNotHasKey('target_id', $resolved);
+        $this->assertArrayNotHasKey('match_id', $resolved);
+        $this->assertArrayNotHasKey('fixture_id', $resolved);
+
+        // The external Football-API id must reuse the same code.
+        $again = $this->postJson('/api/v1/deeplinks', ['type' => 'team', 'id' => $externalId])
+            ->assertStatus(200)
+            ->json('data');
+
+        $this->assertSame($code, $again['code']);
+    }
+
+    public function test_screen_is_a_field_not_a_link_type(): void
+    {
+        $this->postJson('/api/v1/deeplinks', ['type' => 'screen', 'id' => 2])
+            ->assertStatus(422);
+
+        $this->get('/screen/2')->assertStatus(404);
     }
 
     public function test_the_ios_claim_endpoint_resolves_the_code_and_is_rate_limited(): void
@@ -195,8 +266,10 @@ class DeepLinksTest extends TestCase
 
     public function test_share_pages_render_without_a_localized_prefix(): void
     {
-        $post  = $this->createPost();
+        $post   = $this->createPost();
         $league = $this->createLeague();
+        $match  = $this->createMatch();
+        $team   = $this->createTeam('Al Ahly', 4242);
 
         $this->get('/post/' . $post->id)
             ->assertStatus(200)
@@ -207,6 +280,16 @@ class DeepLinksTest extends TestCase
             ->assertStatus(200)
             ->assertSee('Test league')
             ->assertSee('/league/' . $league->id, false);
+
+        $this->get('/match/' . $match->id)
+            ->assertStatus(200)
+            ->assertSee('Home FC vs Away FC')
+            ->assertSee('/match/' . $match->id, false);
+
+        $this->get('/team/' . $team->id)
+            ->assertStatus(200)
+            ->assertSee('Al Ahly')
+            ->assertSee('/team/' . $team->id, false);
     }
 
     private function createPost(bool $scheduled = false): Post
@@ -246,6 +329,39 @@ class DeepLinksTest extends TestCase
         ]);
 
         return $league;
+    }
+
+    private function createTeam(string $name, int $externalId): Team
+    {
+        $team = Team::query()->create([
+            'team_id' => $externalId,
+            'image'   => 'team.png',
+        ]);
+
+        TeamTranslation::query()->create([
+            'team_id' => $team->id,
+            'locale'  => 'en',
+            'name'    => $name,
+        ]);
+
+        return $team;
+    }
+
+    private function createMatch(): Matche
+    {
+        $home   = $this->createTeam('Home FC', 9001);
+        $away   = $this->createTeam('Away FC', 9002);
+        $league = $this->createLeague();
+
+        return Matche::query()->create([
+            'fixture_id'     => 778899,
+            'team1_id'       => $home->id,
+            'team2_id'       => $away->id,
+            'competition_id' => $league->id,
+            'match_date'     => now()->addDay(),
+            'week'           => '1',
+            'status'         => 'pending',
+        ]);
     }
 
     private function createLink(string $type, int $id): string

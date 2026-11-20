@@ -14,12 +14,12 @@ class DeepLinksController extends Controller
     use ApiResponser;
 
     /**
-     * Create (or reuse) a short link for a post/league.
+     * Create (or reuse) a short link for a post, league, match or team.
      */
     public function store(Request $request, DeepLinkService $service): JsonResponse
     {
         $data = $request->validate([
-            'type' => ['required', Rule::in(array_keys(DeepLinkService::TYPES))],
+            'type' => ['required', Rule::in($service->allowedTypes())],
             'id'   => ['required', 'integer', 'min:1'],
         ]);
 
