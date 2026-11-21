@@ -1,0 +1,468 @@
+{
+  "info": {
+    "_postman_id": "a1b2c3d4-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
+    "name": "Grinta - Self-hosted Dynamic Links",
+    "description": "Postman collection for the Grinta deep-links API.\n\nIDENTIFIERS: the create body uses `id` (our internal/local database id; the screen number for type=screen) and, for match/team, `football_id` (the id returned by the Football API: fixture_id for a match, team_id for a team). At least one is required. When both are sent they are combined in one OR query. A Football API id must be sent in `football_id`, never in `id`. The response always stores the internal id in `target_id` and never returns a separate `match_id`.\n\nDYNAMIC CODE: every 'Create link' request has a test script that saves the returned data.code into the collection variable {{code}}. The Resolve / Click / Claim requests then use {{code}} automatically, so you do not copy/paste anything.\n\nSCREEN: `screen` is caller-supplied in the create body (0 to 4) and stored with the link. It is returned as a fixed key on resolve/click/claim, or null when omitted. Changing `screen` for the same target gives a different code.\n\nBASE URL: the collection variable base_url currently points to the local vhost http://appgrinta_1.test/api/v1. Change it to https://appgrinta.com/api/v1 to test production.\n\nNo auth:api token is required.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Create link",
+      "item": [
+        {
+          "name": "Create - post",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Response has data.code', function () {",
+                  "    var json = pm.response.json();",
+                  "    pm.expect(json.data).to.have.property('code');",
+                  "});",
+                  "var json = pm.response.json();",
+                  "if (json && json.data && json.data.code) {",
+                  "    pm.collectionVariables.set('code', json.data.code);",
+                  "    console.log('Saved {{code}} = ' + json.data.code);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"post\",\n  \"id\": 20\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/deeplinks",
+            "description": "Create (or reuse) a code for a published post using our internal `id`. Scheduled posts return 404. `screen` is omitted here, so the response has screen: null."
+          }
+        },
+        {
+          "name": "Create - league",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "var json = pm.response.json();",
+                  "if (json && json.data && json.data.code) {",
+                  "    pm.collectionVariables.set('code', json.data.code);",
+                  "    console.log('Saved {{code}} = ' + json.data.code);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"league\",\n  \"id\": 33,\n  \"screen\": \"1\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/deeplinks",
+            "description": "Create (or reuse) a code for a competition using its internal `id`. `screen` is caller-supplied and stored with the link."
+          }
+        },
+        {
+          "name": "Create - match by id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "var json = pm.response.json();",
+                  "if (json && json.data && json.data.code) {",
+                  "    pm.collectionVariables.set('code', json.data.code);",
+                  "    console.log('Saved {{code}} = ' + json.data.code);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"match\",\n  \"id\": 35122,\n  \"screen\": \"2\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/deeplinks",
+            "description": "Create (or reuse) a code for a match using our internal `id`. Change `screen` to \"1\" and send again to get a different code for the same match."
+          }
+        },
+        {
+          "name": "Create - match by football_id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('target_id is the internal match id', function () {",
+                  "    var d = pm.response.json().data;",
+                  "    pm.expect(d).to.have.property('target_id');",
+                  "    pm.expect(d).to.not.have.property('match_id');",
+                  "});",
+                  "var json = pm.response.json();",
+                  "if (json && json.data && json.data.code) {",
+                  "    pm.collectionVariables.set('code', json.data.code);",
+                  "    console.log('Saved {{code}} = ' + json.data.code);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"match\",\n  \"football_id\": 1367248,\n  \"screen\": \"2\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/deeplinks",
+            "description": "The mobile app only has the external Football API fixture id. Send it in `football_id`; the server resolves it to the internal match id, stores that in `target_id`, and reuses the same code. No `match_id` key is returned."
+          }
+        },
+        {
+          "name": "Create - match by both identifiers",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Response keeps the original contract', function () {",
+                  "    var d = pm.response.json().data;",
+                  "    pm.expect(d).to.have.property('target_type', 'match');",
+                  "    pm.expect(d).to.have.property('target_id');",
+                  "    pm.expect(d).to.not.have.property('match_id');",
+                  "});",
+                  "var json = pm.response.json();",
+                  "if (json && json.data && json.data.code) {",
+                  "    pm.collectionVariables.set('code', json.data.code);",
+                  "    console.log('Saved {{code}} = ' + json.data.code);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"match\",\n  \"id\": 35122,\n  \"football_id\": 1367248,\n  \"screen\": \"2\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/deeplinks",
+            "description": "Both identifiers sent together: the lookup is one `WHERE matches.id = id OR fixture_id = football_id` query and reuses the same code. If they point to different rows, the database decides which one comes back first."
+          }
+        },
+        {
+          "name": "Create - team by id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "var json = pm.response.json();",
+                  "if (json && json.data && json.data.code) {",
+                  "    pm.collectionVariables.set('code', json.data.code);",
+                  "    console.log('Saved {{code}} = ' + json.data.code);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"team\",\n  \"id\": 583,\n  \"screen\": \"1\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/deeplinks",
+            "description": "Create (or reuse) a code for a team using our internal `id`. The response also returns the external `team_id` as a helper."
+          }
+        },
+        {
+          "name": "Create - team by football_id",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('target_id is the internal team id', function () {",
+                  "    var d = pm.response.json().data;",
+                  "    pm.expect(d).to.have.property('target_id', 583);",
+                  "    pm.expect(d).to.have.property('team_id', 50);",
+                  "});",
+                  "var json = pm.response.json();",
+                  "if (json && json.data && json.data.code) {",
+                  "    pm.collectionVariables.set('code', json.data.code);",
+                  "    console.log('Saved {{code}} = ' + json.data.code);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"team\",\n  \"football_id\": 50,\n  \"screen\": \"1\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/deeplinks",
+            "description": "Send the external Football API `team_id` in `football_id`; the server resolves it to the internal id and reuses the same code as the `id` request above."
+          }
+        },
+        {
+          "name": "Create - screen",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "var json = pm.response.json();",
+                  "if (json && json.data && json.data.code) {",
+                  "    pm.collectionVariables.set('code', json.data.code);",
+                  "    console.log('Saved {{code}} = ' + json.data.code);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"screen\",\n  \"id\": 2,\n  \"screen\": \"2\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/deeplinks",
+            "description": "Create a code for a screen number from 0 to 4. Here `id` is the screen number. The `screen` body field is stored separately; omit it to get screen: null. Values outside 0-4 return 422."
+          }
+        },
+        {
+          "name": "Create - invalid screen (422)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 422', function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"screen\",\n  \"id\": 99\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/deeplinks",
+            "description": "Negative test: unknown screen number must be rejected."
+          }
+        },
+        {
+          "name": "Create - missing target (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 404', function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"post\",\n  \"id\": 99999999\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/deeplinks",
+            "description": "Negative test: target that does not exist must return 404."
+          }
+        },
+        {
+          "name": "Create - missing identifiers (422)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 422', function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"match\",\n  \"screen\": \"2\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/deeplinks",
+            "description": "Negative test: at least one of `id` / `football_id` is required."
+          }
+        }
+      ]
+    },
+    {
+      "name": "Use code",
+      "item": [
+        {
+          "name": "Resolve code",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('Old contract keys exist', function () {",
+                  "    var d = pm.response.json().data;",
+                  "    pm.expect(d).to.have.property('target_type');",
+                  "    pm.expect(d).to.have.property('target_id');",
+                  "});",
+                  "pm.test('screen is a fixed key', function () {",
+                  "    var d = pm.response.json().data;",
+                  "    pm.expect(d).to.have.property('screen');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/deeplinks/resolve?code={{code}}",
+            "description": "Turn {{code}} back into a content target. {{code}} is filled automatically by any 'Create link' request."
+          }
+        },
+        {
+          "name": "Record click",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{code}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/deeplinks/click",
+            "description": "Optional analytics: increments clicks_count and returns the same payload as resolve."
+          }
+        },
+        {
+          "name": "Claim iOS code",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"{{code}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/deeplinks/claim",
+            "description": "Manual code entry for iOS deferred deep links. Rate limited to 10 requests/minute per IP. A code is never consumed."
+          }
+        },
+        {
+          "name": "Resolve - unknown code (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 404', function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{base_url}}/deeplinks/resolve?code=GR-DOESNOTEXIST",
+            "description": "Negative test: an unknown code must return 404."
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://appgrinta_1.test/api/v1",
+      "type": "string",
+      "description": "Local vhost. Change to https://appgrinta.com/api/v1 for production."
+    },
+    {
+      "key": "code",
+      "value": "GR-YRXZZUTF",
+      "type": "string",
+      "description": "Set automatically by the 'Create link' test scripts. You can also paste any code manually here."
+    }
+  ]
+}

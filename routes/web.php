@@ -37,6 +37,7 @@ Route::get('/post/{post}',    [DeepLinkController::class, 'post'])->name('deepli
 Route::get('/league/{league}',[DeepLinkController::class, 'league'])->name('deeplinks.league');
 Route::get('/match/{match}',  [DeepLinkController::class, 'match'])->name('deeplinks.match');
 Route::get('/team/{team}',    [DeepLinkController::class, 'team'])->name('deeplinks.team');
+Route::get('/screen/{screen}',[DeepLinkController::class, 'screen'])->name('deeplinks.screen');
 
 Route::group([
     'prefix' => LaravelLocalization::setLocale(),

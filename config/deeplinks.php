@@ -23,6 +23,18 @@ return [
     'play_store_url' => env('DEEPLINK_PLAY_STORE_URL'),
     'app_store_url'  => env('DEEPLINK_APP_STORE_URL'),
 
+    /*
+     | Numeric screen ids accepted by the API: 0 through 4 inclusive.
+     | Rename the labels here to match the mobile app's screen names.
+     */
+    'screens' => [
+        0 => 'Screen 0',
+        1 => 'League / team screen',
+        2 => 'Match lineup tab',
+        3 => 'Screen 3',
+        4 => 'Screen 4',
+    ],
+
     'claim_limit' => (int) env('DEEPLINK_CLAIM_LIMIT', 10),
     'create_limit' => (int) env('DEEPLINK_CREATE_LIMIT', 30),
 ];

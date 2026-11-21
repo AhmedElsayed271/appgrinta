@@ -36,12 +36,21 @@ class DeepLinkController extends Controller
         return $this->share('team', $team, $service);
     }
 
+    public function screen(int $screen, DeepLinkService $service): View
+    {
+        $data = $service->viewDataForTarget(DeepLinkService::SCREEN_TYPE, $screen);
+
+        abort_if(!$data, 404);
+
+        return view('deeplinks.landing', $data);
+    }
+
     private function share(string $type, int $id, DeepLinkService $service): View
     {
         $target = $service->target($type, $id);
 
         abort_if(!$target, 404);
 
-        return view('deeplinks.landing', $service->viewDataForTarget($type, $target));
+        return view('deeplinks.landing', $service->viewDataForTarget($type, $id, $target));
     }
 }

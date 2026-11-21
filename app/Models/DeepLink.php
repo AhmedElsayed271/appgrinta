@@ -13,6 +13,7 @@ class DeepLink extends Model
         'code',
         'target_type',
         'target_id',
+        'screen',
         'clicks_count',
         'last_clicked_at',
     ];

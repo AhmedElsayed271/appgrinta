@@ -18,6 +18,7 @@ use Illuminate\Support\Str;
  */
 class DeepLinkService
 {
+    /** Content types that are backed by a database model. */
     public const TYPES = [
         'post'   => Post::class,
         'league' => Competition::class,
@@ -25,20 +26,37 @@ class DeepLinkService
         'team'   => Team::class,
     ];
 
-    /**
-     * `screen` is a navigation field, not a link type. Values follow the
-     * push-notification contract: 1 = league/team, 2 = match lineup tab.
-     * Posts have no screen value and omit the key.
-     */
-    private const SCREEN_BY_TYPE = [
-        'league' => '1',
-        'team'   => '1',
-        'match'  => '2',
-    ];
+    /** A screen link has no content model: its target id IS the screen number. */
+    public const SCREEN_TYPE = 'screen';
 
     public function allowedTypes(): array
     {
-        return array_keys(self::TYPES);
+        return array_merge(array_keys(self::TYPES), [self::SCREEN_TYPE]);
+    }
+
+    public function screens(): array
+    {
+        return (array) config('deeplinks.screens', []);
+    }
+
+    /**
+     * Normalize the caller-supplied screen value to its string form.
+     * Returns null for an omitted value, and also for an unknown one so the
+     * controller can reject it with 422.
+     */
+    public function normalizeScreen(mixed $value): ?string
+    {
+        if (!is_int($value) && !is_string($value)) {
+            return null;
+        }
+
+        $value = (string) $value;
+
+        if ($value === '' || !ctype_digit($value)) {
+            return null;
+        }
+
+        return array_key_exists((int) $value, $this->screens()) ? $value : null;
     }
 
     public function normalizeCode(?string $code): ?string
@@ -72,45 +90,80 @@ class DeepLinkService
      * A target is public only when the content exists and, for posts, is
      * already published. Scheduled posts must not leak through shared links.
      *
-     * For teams both the internal id and the external Football-API team_id are
-     * accepted, matching TeamsController::show().
+     * $targetId is our internal database id (the `id` request field).
+     * $footballId is the id returned by the Football API (fixture_id for a
+     * match, team_id for a team). Both are used in one OR query.
      */
-    public function target(string $type, int $id): ?Model
+    public function target(string $type, ?int $targetId, ?int $footballId = null): ?Model
     {
         if (!array_key_exists($type, self::TYPES)) {
             return null;
         }
 
         if ($type === 'post') {
-            return Post::query()->published()->find($id);
-        }
-
-        if ($type === 'team') {
-            // Prefer the internal id; an OR query could otherwise return a
-            // different team whose external team_id equals this internal id.
-            return Team::query()->find($id)
-                ?? Team::query()->where('team_id', $id)->first();
+            return $targetId !== null
+                ? Post::query()->published()->find($targetId)
+                : null;
         }
 
         $class = self::TYPES[$type];
+        $externalColumn = $this->footballColumn($type);
 
-        return $class::query()->find($id);
-    }
-
-    public function create(string $type, int $targetId): ?DeepLink
-    {
-        $target = $this->target($type, $targetId);
-
-        if (!$target) {
-            return null;
+        if ($targetId !== null && $footballId !== null && $externalColumn !== null) {
+            // One query using both identifiers. No explicit ordering: the
+            // database decides which row comes first when they disagree.
+            return $class::query()
+                ->where('id', $targetId)
+                ->orWhere($externalColumn, $footballId)
+                ->first();
         }
 
-        // Always store the internal id so an external team id and the
-        // matching database id reuse the same code.
-        $targetId = (int) $target->id;
+        if ($targetId !== null) {
+            return $class::query()->find($targetId);
+        }
 
+        if ($footballId !== null && $externalColumn !== null) {
+            return $class::query()->where($externalColumn, $footballId)->first();
+        }
+
+        return null;
+    }
+
+    private function footballColumn(string $type): ?string
+    {
+        return match ($type) {
+            'match' => 'fixture_id',
+            'team'  => 'team_id',
+            default => null,
+        };
+    }
+
+    public function create(
+        string $type,
+        ?int $targetId,
+        ?int $footballId = null,
+        ?string $screen = null
+    ): ?DeepLink {
+        if ($type === self::SCREEN_TYPE) {
+            if ($targetId === null || !array_key_exists($targetId, $this->screens())) {
+                return null;
+            }
+        } else {
+            $target = $this->target($type, $targetId, $footballId);
+
+            if (!$target) {
+                return null;
+            }
+
+            // Always store the internal id so an external Football id and the
+            // matching database id reuse the same code.
+            $targetId = (int) $target->id;
+        }
+
+        // The screen is part of the identity: the same target opened on two
+        // different screens produces two distinct codes.
         return DeepLink::query()->firstOrCreate(
-            ['target_type' => $type, 'target_id' => $targetId],
+            ['target_type' => $type, 'target_id' => $targetId, 'screen' => $screen],
             ['code' => $this->generateCode()]
         );
     }
@@ -121,6 +174,14 @@ class DeepLinkService
 
         if (!$link) {
             return null;
+        }
+
+        if ($link->target_type === self::SCREEN_TYPE) {
+            if (!array_key_exists((int) $link->target_id, $this->screens())) {
+                return null;
+            }
+
+            return $this->payload($link, null);
         }
 
         $target = $this->target($link->target_type, (int) $link->target_id);
@@ -163,33 +224,44 @@ class DeepLinkService
         ];
     }
 
-    public function viewDataForTarget(string $type, Model $target): array
+    /**
+     * Share-page data for any target type. Screens pass a null model.
+     */
+    public function viewDataForTarget(string $type, int $id, ?Model $target = null): array
     {
-        $id = (int) $target->id;
+        if ($type === self::SCREEN_TYPE && !array_key_exists($id, $this->screens())) {
+            return [];
+        }
+
+        $appParams = $type === self::SCREEN_TYPE
+            ? ['type' => $type, 'screen' => (string) $id]
+            : ['type' => $type, 'id' => $id];
 
         return $this->viewDataForLink([
-            'title'         => $this->titleFor($target),
-            'description'   => $this->descriptionFor($target, $type),
+            'title'         => $this->titleFor($target, $type, $id),
+            'description'   => $this->descriptionFor($target, $type, $id),
             'image'         => $this->imageFor($target),
             'share_url'     => $this->webUrl($this->targetPath($type, $id)),
-            'app_url'       => $this->appUrl(['type' => $type, 'id' => $id]),
+            'app_url'       => $this->appUrl($appParams),
             'play_url'      => $this->playUrl(null),
             'app_store_url' => $this->appStoreUrl(),
             'code'          => null,
         ]);
     }
 
-    private function payload(DeepLink $link, Model $target): array
+    private function payload(DeepLink $link, ?Model $target): array
     {
         $type = $link->target_type;
-        $id   = (int) $target->id;
+        $id   = (int) $link->target_id;
         $url  = $this->webUrl('/l/' . $link->code);
 
         $data = [
             'code'          => $link->code,
             'claim_code'    => $link->code,
-            'title'         => $this->titleFor($target),
-            'description'   => $this->descriptionFor($target, $type),
+            'target_type'   => $type,
+            'target_id'     => $id,
+            'title'         => $this->titleFor($target, $type, $id),
+            'description'   => $this->descriptionFor($target, $type, $id),
             'image'         => $this->imageFor($target),
             'path'          => $this->targetPath($type, $id),
             'web_url'       => $url,
@@ -199,34 +271,37 @@ class DeepLinkService
             'app_store_url' => $this->appStoreUrl(),
         ];
 
-        // No target_type/target_id: the app navigates with `screen` + the
-        // concrete id keys. Keys that do not apply are omitted entirely.
-        return $data + $this->navigationFor($type, $target);
+        // The old contract (target_type + target_id) is kept. `screen` is now
+        // always present as a key, holding exactly what the caller stored at
+        // create time (null when omitted). Ids are additive helpers.
+        return $data + $this->navigationFor($target, $link->screen);
     }
 
-    private function navigationFor(string $type, Model $target): array
+    private function navigationFor(?Model $target, ?string $screen): array
     {
-        $ids = match ($type) {
-            'post'   => ['post_id' => (int) $target->id],
-            'league' => ['competition_id' => (int) $target->id],
-            'team'   => ['team_id' => (int) $target->team_id],
-            'match'  => [
-                'match_id'       => (int) $target->id,
+        // Keys that merely repeat target_id (post_id, match_id, and
+        // competition_id on a league link) are intentionally not emitted.
+        // Only ids that differ from target_id are kept as helpers.
+        $ids = [];
+
+        if ($target instanceof Matche) {
+            $ids = [
                 'fixture_id'     => (int) $target->fixture_id,
                 'home_team_id'   => (int) $target->team1_id,
                 'away_team_id'   => (int) $target->team2_id,
                 'competition_id' => (int) $target->competition_id,
                 'match_date'     => $target->match_date?->toIso8601String(),
                 'status'         => (string) $target->status,
-            ],
-            default  => [],
-        };
+            ];
+        } elseif ($target instanceof Team) {
+            // External Football-API id; target_id holds the internal id.
+            $ids = ['team_id' => (int) $target->team_id];
+        }
 
+        // Non-applicable id keys are omitted, never sent as null.
         $ids = array_filter($ids, static fn ($value) => $value !== null && $value !== '' && $value !== 0);
 
-        $screen = self::SCREEN_BY_TYPE[$type] ?? null;
-
-        return ($screen !== null ? ['screen' => $screen] : []) + $ids;
+        return ['screen' => $screen] + $ids;
     }
 
     private function generateCode(): string
@@ -238,8 +313,16 @@ class DeepLinkService
         return $code;
     }
 
-    private function titleFor(Model $target): string
+    private function titleFor(?Model $target, string $type, int $id): string
     {
+        if ($type === self::SCREEN_TYPE) {
+            return 'Grinta - ' . ($this->screens()[$id] ?? 'Screen ' . $id);
+        }
+
+        if (!$target) {
+            return 'Grinta';
+        }
+
         if ($target instanceof Matche) {
             $home  = $this->teamName($target->team1);
             $away  = $this->teamName($target->team2);
@@ -272,24 +355,28 @@ class DeepLinkService
         return (string) $name;
     }
 
-    private function descriptionFor(Model $target, string $type): string
+    private function descriptionFor(?Model $target, string $type, int $id): string
     {
-        if ($target instanceof Post) {
+        if ($type === self::SCREEN_TYPE) {
+            $description = $this->screens()[$id] ?? 'Grinta';
+        } elseif ($target instanceof Post) {
             $description = $target->translate(app()->getLocale())?->description;
         } elseif ($target instanceof Matche) {
-            $description = 'Grinta - ' . $this->titleFor($target);
+            $description = 'Grinta - ' . $this->titleFor($target, $type, $id);
 
             if ($target->match_date) {
                 $description .= ' - ' . $target->match_date->format('Y-m-d H:i');
             }
+        } elseif ($target) {
+            $description = 'Grinta - ' . $this->titleFor($target, $type, $id);
         } else {
-            $description = 'Grinta - ' . $this->titleFor($target);
+            $description = 'Grinta';
         }
 
         return Str::limit(trim(strip_tags((string) $description)), 160);
     }
 
-    private function imageFor(Model $target): string
+    private function imageFor(?Model $target): string
     {
         $image = $target->image_path ?? '';
 
@@ -301,11 +388,12 @@ class DeepLinkService
     private function targetPath(string $type, int $id): string
     {
         return match ($type) {
-            'post'   => '/post/' . $id,
-            'league' => '/league/' . $id,
-            'match'  => '/match/' . $id,
-            'team'   => '/team/' . $id,
-            default  => '/l/' . $id,
+            'post'              => '/post/' . $id,
+            'league'            => '/league/' . $id,
+            'match'             => '/match/' . $id,
+            'team'              => '/team/' . $id,
+            self::SCREEN_TYPE   => '/screen/' . $id,
+            default             => '/l/' . $id,
         };
     }
 
