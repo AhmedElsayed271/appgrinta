@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "a1b2c3d4-5e6f-4a7b-8c9d-0e1f2a3b4c5d",
     "name": "Grinta - Self-hosted Dynamic Links",
-    "description": "Postman collection for the Grinta deep-links API.\n\nIDENTIFIERS: the create body uses `id` (our internal/local database id; the screen number for type=screen) and, for match/team, `football_id` (the id returned by the Football API: fixture_id for a match, team_id for a team). At least one is required. When both are sent they are combined in one OR query. A Football API id must be sent in `football_id`, never in `id`. The response always stores the internal id in `target_id` and never returns a separate `match_id`.\n\nDYNAMIC CODE: every 'Create link' request has a test script that saves the returned data.code into the collection variable {{code}}. The Resolve / Click / Claim requests then use {{code}} automatically, so you do not copy/paste anything.\n\nSCREEN: `screen` is caller-supplied in the create body (0 to 4) and stored with the link. It is returned as a fixed key on resolve/click/claim, or null when omitted. Changing `screen` for the same target gives a different code.\n\nBASE URL: the collection variable base_url currently points to the local vhost http://appgrinta_1.test/api/v1. Change it to https://appgrinta.com/api/v1 to test production.\n\nNo auth:api token is required.",
+    "description": "Postman collection for the Grinta deep-links API.\n\nIDENTIFIERS: the create body always uses the single `id` field. For `league` / `match` / `team` it must be the Football API id (league_id / fixture_id / team_id) — our internal id is not accepted and returns 404 (missing `id` returns 422). For `post` `id` is our internal id, and for `screen` it is the screen number. The response always stores the internal id in `target_id` and returns the external id as a helper (`league_id` / `fixture_id` / `team_id`), never a separate `match_id`.\n\nDYNAMIC CODE: every 'Create link' request has a test script that saves the returned data.code into the collection variable {{code}}. The Resolve / Click / Claim requests then use {{code}} automatically, so you do not copy/paste anything.\n\nSCREEN: `screen` is caller-supplied in the create body (0 to 4) and stored with the link. It is returned as a fixed key on resolve/click/claim, or null when omitted. Changing `screen` for the same target gives a different code.\n\nBASE URL: the collection variable base_url currently points to the local vhost http://appgrinta_1.test/api/v1. Change it to https://appgrinta.com/api/v1 to test production.\n\nNo auth:api token is required.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -44,7 +44,7 @@
           }
         },
         {
-          "name": "Create - league",
+          "name": "Create - league by Football API id",
           "event": [
             {
               "listen": "test",
@@ -52,6 +52,12 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
+                  "pm.test('target_id is internal, league_id is the external id', function () {",
+                  "    var d = pm.response.json().data;",
+                  "    pm.expect(d).to.have.property('target_id');",
+                  "    pm.expect(d).to.have.property('league_id');",
+                  "    pm.expect(d).to.not.have.property('competition_id');",
+                  "});",
                   "var json = pm.response.json();",
                   "if (json && json.data && json.data.code) {",
                   "    pm.collectionVariables.set('code', json.data.code);",
@@ -70,23 +76,68 @@
               "options": { "raw": { "language": "json" } }
             },
             "url": "{{base_url}}/deeplinks",
-            "description": "Create (or reuse) a code for a competition using its internal `id`. `screen` is caller-supplied and stored with the link."
+            "description": "Create (or reuse) a code for a competition by sending its Football API `league_id` (33 here) in `id`. The response keeps `target_id` as the internal competition id and returns `league_id` as a helper. `screen` is caller-supplied and stored with the link."
           }
         },
         {
-          "name": "Create - match by id",
+          "name": "Create - league by internal id (404)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
-                  "var json = pm.response.json();",
-                  "if (json && json.data && json.data.code) {",
-                  "    pm.collectionVariables.set('code', json.data.code);",
-                  "    console.log('Saved {{code}} = ' + json.data.code);",
-                  "}"
+                  "pm.test('Status is 404', function () { pm.response.to.have.status(404); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"league\",\n  \"id\": 33,\n  \"screen\": \"1\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/deeplinks",
+            "description": "Negative test: `id` is matched against `league_id` only; our internal competition id is not accepted (use a value that is not another league's league_id)."
+          }
+        },
+        {
+          "name": "Create - league missing id (422)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 422', function () { pm.response.to.have.status(422); });"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"type\": \"league\",\n  \"screen\": \"1\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": "{{base_url}}/deeplinks",
+            "description": "Negative test: `id` is required for every link type."
+          }
+        },
+        {
+          "name": "Create - match by internal id (404)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('Status is 404', function () { pm.response.to.have.status(404); });"
                 ]
               }
             }
@@ -100,11 +151,11 @@
               "options": { "raw": { "language": "json" } }
             },
             "url": "{{base_url}}/deeplinks",
-            "description": "Create (or reuse) a code for a match using our internal `id`. Change `screen` to \"1\" and send again to get a different code for the same match."
+            "description": "Negative test: our internal match id is not accepted by the create API. Send the Football API fixture_id instead."
           }
         },
         {
-          "name": "Create - match by football_id",
+          "name": "Create - match by Football API id",
           "event": [
             {
               "listen": "test",
@@ -131,63 +182,22 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"match\",\n  \"football_id\": 1367248,\n  \"screen\": \"2\"\n}",
+              "raw": "{\n  \"type\": \"match\",\n  \"id\": 1367248,\n  \"screen\": \"2\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": "{{base_url}}/deeplinks",
-            "description": "The mobile app only has the external Football API fixture id. Send it in `football_id`; the server resolves it to the internal match id, stores that in `target_id`, and reuses the same code. No `match_id` key is returned."
+            "description": "Send the external Football API `fixture_id` directly in `id`. The server matches only against `fixture_id`, stores the internal id in `target_id`, and returns `fixture_id` as a helper. Our internal id is not accepted (see the negative request above). No `match_id` key is returned."
           }
         },
         {
-          "name": "Create - match by both identifiers",
+          "name": "Create - team by internal id (404)",
           "event": [
             {
               "listen": "test",
               "script": {
                 "type": "text/javascript",
                 "exec": [
-                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
-                  "pm.test('Response keeps the original contract', function () {",
-                  "    var d = pm.response.json().data;",
-                  "    pm.expect(d).to.have.property('target_type', 'match');",
-                  "    pm.expect(d).to.have.property('target_id');",
-                  "    pm.expect(d).to.not.have.property('match_id');",
-                  "});",
-                  "var json = pm.response.json();",
-                  "if (json && json.data && json.data.code) {",
-                  "    pm.collectionVariables.set('code', json.data.code);",
-                  "    console.log('Saved {{code}} = ' + json.data.code);",
-                  "}"
-                ]
-              }
-            }
-          ],
-          "request": {
-            "method": "POST",
-            "header": [{ "key": "Content-Type", "value": "application/json" }],
-            "body": {
-              "mode": "raw",
-              "raw": "{\n  \"type\": \"match\",\n  \"id\": 35122,\n  \"football_id\": 1367248,\n  \"screen\": \"2\"\n}",
-              "options": { "raw": { "language": "json" } }
-            },
-            "url": "{{base_url}}/deeplinks",
-            "description": "Both identifiers sent together: the lookup is one `WHERE matches.id = id OR fixture_id = football_id` query and reuses the same code. If they point to different rows, the database decides which one comes back first."
-          }
-        },
-        {
-          "name": "Create - team by id",
-          "event": [
-            {
-              "listen": "test",
-              "script": {
-                "type": "text/javascript",
-                "exec": [
-                  "pm.test('Status is 200', function () { pm.response.to.have.status(200); });",
-                  "var json = pm.response.json();",
-                  "if (json && json.data && json.data.code) {",
-                  "    pm.collectionVariables.set('code', json.data.code);",
-                  "    console.log('Saved {{code}} = ' + json.data.code);",
-                  "}"
+                  "pm.test('Status is 404', function () { pm.response.to.have.status(404); });"
                 ]
               }
             }
@@ -201,11 +211,11 @@
               "options": { "raw": { "language": "json" } }
             },
             "url": "{{base_url}}/deeplinks",
-            "description": "Create (or reuse) a code for a team using our internal `id`. The response also returns the external `team_id` as a helper."
+            "description": "Negative test: our internal team id is not accepted by the create API. Send the Football API team_id instead."
           }
         },
         {
-          "name": "Create - team by football_id",
+          "name": "Create - team by Football API id",
           "event": [
             {
               "listen": "test",
@@ -232,11 +242,11 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"type\": \"team\",\n  \"football_id\": 50,\n  \"screen\": \"1\"\n}",
+              "raw": "{\n  \"type\": \"team\",\n  \"id\": 50,\n  \"screen\": \"1\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": "{{base_url}}/deeplinks",
-            "description": "Send the external Football API `team_id` in `football_id`; the server resolves it to the internal id and reuses the same code as the `id` request above."
+            "description": "Send the external Football API `team_id` directly in `id`; the server resolves it to the internal id and returns `team_id` as a helper. Our internal id is not accepted (see the negative request above)."
           }
         },
         {
@@ -341,7 +351,7 @@
               "options": { "raw": { "language": "json" } }
             },
             "url": "{{base_url}}/deeplinks",
-            "description": "Negative test: at least one of `id` / `football_id` is required."
+            "description": "Negative test: `id` is required."
           }
         }
       ]

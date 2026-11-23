@@ -90,80 +90,65 @@ class DeepLinkService
      * A target is public only when the content exists and, for posts, is
      * already published. Scheduled posts must not leak through shared links.
      *
-     * $targetId is our internal database id (the `id` request field).
-     * $footballId is the id returned by the Football API (fixture_id for a
-     * match, team_id for a team). Both are used in one OR query.
+     * By default $id is our internal database id (used by resolve() and the
+     * web landing routes). When $footballIdOnly is true — the public create
+     * API — match/team ids are matched only against the Football API column
+     * (fixture_id / team_id). The internal id is always stored on the link.
      */
-    public function target(string $type, ?int $targetId, ?int $footballId = null): ?Model
+    public function target(string $type, ?int $id, bool $footballIdOnly = false): ?Model
     {
-        if (!array_key_exists($type, self::TYPES)) {
+        if (!array_key_exists($type, self::TYPES) || $id === null) {
             return null;
         }
 
         if ($type === 'post') {
-            return $targetId !== null
-                ? Post::query()->published()->find($targetId)
-                : null;
+            return Post::query()->published()->find($id);
         }
 
         $class = self::TYPES[$type];
-        $externalColumn = $this->footballColumn($type);
+        $externalColumn = $this->externalIdColumn($type);
 
-        if ($targetId !== null && $footballId !== null && $externalColumn !== null) {
-            // One query using both identifiers. No explicit ordering: the
-            // database decides which row comes first when they disagree.
-            return $class::query()
-                ->where('id', $targetId)
-                ->orWhere($externalColumn, $footballId)
-                ->first();
+        if ($externalColumn !== null && $footballIdOnly) {
+            // The create API accepts only Football API ids for match/team.
+            return $class::query()->where($externalColumn, $id)->first();
         }
 
-        if ($targetId !== null) {
-            return $class::query()->find($targetId);
-        }
-
-        if ($footballId !== null && $externalColumn !== null) {
-            return $class::query()->where($externalColumn, $footballId)->first();
-        }
-
-        return null;
+        // resolve() and the web landing routes always use our internal id.
+        return $class::query()->find($id);
     }
 
-    private function footballColumn(string $type): ?string
+    private function externalIdColumn(string $type): ?string
     {
         return match ($type) {
-            'match' => 'fixture_id',
-            'team'  => 'team_id',
-            default => null,
+            'match'  => 'fixture_id',
+            'team'   => 'team_id',
+            'league' => 'league_id',
+            default  => null,
         };
     }
 
-    public function create(
-        string $type,
-        ?int $targetId,
-        ?int $footballId = null,
-        ?string $screen = null
-    ): ?DeepLink {
+    public function create(string $type, ?int $id, ?string $screen = null): ?DeepLink
+    {
         if ($type === self::SCREEN_TYPE) {
-            if ($targetId === null || !array_key_exists($targetId, $this->screens())) {
+            if ($id === null || !array_key_exists($id, $this->screens())) {
                 return null;
             }
         } else {
-            $target = $this->target($type, $targetId, $footballId);
+            $target = $this->target($type, $id, true);
 
             if (!$target) {
                 return null;
             }
 
-            // Always store the internal id so an external Football id and the
-            // matching database id reuse the same code.
-            $targetId = (int) $target->id;
+            // Always store the internal id, even though the caller supplied
+            // the Football API id.
+            $id = (int) $target->id;
         }
 
         // The screen is part of the identity: the same target opened on two
         // different screens produces two distinct codes.
         return DeepLink::query()->firstOrCreate(
-            ['target_type' => $type, 'target_id' => $targetId, 'screen' => $screen],
+            ['target_type' => $type, 'target_id' => $id, 'screen' => $screen],
             ['code' => $this->generateCode()]
         );
     }
@@ -283,6 +268,11 @@ class DeepLinkService
         // competition_id on a league link) are intentionally not emitted.
         // Only ids that differ from target_id are kept as helpers.
         $ids = [];
+
+        if ($target instanceof Competition) {
+            // External Football-API league id; target_id holds our internal id.
+            $ids = ['league_id' => (int) $target->league_id];
+        }
 
         if ($target instanceof Matche) {
             $ids = [

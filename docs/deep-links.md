@@ -44,25 +44,31 @@ All endpoints are under `https://appgrinta.com/api/v1` and do **not** require `a
 POST /api/v1/deeplinks
 Content-Type: application/json
 
-{"type": "match", "id": 8123, "football_id": 1367248, "screen": "2"}
+{"type": "match", "id": 1367248, "screen": "2"}
+```
+
+```http
+POST /api/v1/deeplinks
+Content-Type: application/json
+
+{"type": "league", "id": 4, "screen": "1"}
 ```
 
 | Body field | Required | Notes |
 |---|---|---|
 | `type` | yes | One of `post`, `league`, `match`, `team`, `screen`. |
-| `id` | one of `id` / `football_id` | Our internal database id. For `screen`, this is the screen number (`0`–`4`). |
-| `football_id` | one of `id` / `football_id` | The id returned by the Football API: `fixture_id` for a match, `team_id` for a team. Ignored for other types. |
+| `id` | yes | The only identifier field for every type. For `league` / `match` / `team` it must be the Football API id (`league_id` / `fixture_id` / `team_id`). For `post` it is our internal id; for `screen` it is the screen number (`0`–`4`). |
 | `screen` | no | `"0"` to `"4"`; integer `0` to `4` is also accepted. Stored on the link and returned in every response. Omit it to get `screen: null`. A value outside `0`–`4` returns 422. |
 
-At least one of `id` or `football_id` is required; otherwise the API returns 422. When both are sent, the lookup is a single `where <local table>.id = id OR where <external column> = football_id` query. If the two values point to different rows, the database decides which one comes back first.
+For `league`, `match` and `team`, `id` is matched only against the external column (`where league_id = id`, `where fixture_id = id`, `where team_id = id`) — our internal id is not accepted here and returns 404. Omitting `id` returns 422. The link always stores our internal id in `target_id`; the external id is returned as a separate helper key (`league_id`, `fixture_id`, `team_id`).
 
-| `type` | External column for `football_id` | Notes |
+| `type` | `id` means | Notes |
 |---|---|---|
-| `post` | none | Only `id` is used. Scheduled posts are rejected with 404. |
-| `league` | none | Only `id` is used. |
-| `match` | `fixture_id` | Both identifiers resolve to the same code. The response stores the internal id in `target_id`; `fixture_id` is returned as a helper. |
-| `team` | `team_id` | Both identifiers resolve to the same code. |
-| `screen` | none | `id` is the screen number (`0`–`4`). Labels are defined in `config/deeplinks.php`. |
+| `post` | our internal id | Scheduled posts are rejected with 404. |
+| `league` | Football API `league_id` | Sent in `id`; returned as `league_id`; internal `id` is not accepted. |
+| `match` | Football API `fixture_id` | `fixture_id` is returned as a helper; internal match ids are not accepted. |
+| `team` | Football API `team_id` | Internal team ids are not accepted. |
+| `screen` | screen number (`0`–`4`) | Labels are defined in `config/deeplinks.php`. |
 
 Screen labels, used as the title/description of a `screen` link, are defined in `config/deeplinks.php` and can be renamed there:
 
@@ -142,17 +148,17 @@ Limited to 10 requests per minute per IP. A code is never consumed, so multiple 
 | Created with | `screen` value | Additional keys |
 |---|---|---|
 | `post` | caller-supplied or `null` | none |
-| `league` | caller-supplied or `null` | none |
+| `league` | caller-supplied or `null` | `league_id` (external Football-API id) |
 | `team` | caller-supplied or `null` | `team_id` (external Football-API id) |
 | `match` | caller-supplied or `null` | `fixture_id`, `home_team_id`, `away_team_id`, `competition_id`, `match_date` (ISO-8601), `status` |
 | `screen` | caller-supplied or `null` | none |
 
-Keys that would merely repeat `target_id` (`post_id`, `match_id`, and `competition_id` on a league link) are **not returned**. Only ids that differ from `target_id` are kept as helpers: the external `team_id`, and the match-related `fixture_id`, `home_team_id`, `away_team_id`, `competition_id`, `match_date` and `status`. Non-applicable keys are **omitted**, never returned as `null`. Only `screen` is always present, and it may be `null`.
+Keys that would merely repeat `target_id` (`post_id`, `match_id`, and `competition_id` on a league link) are **not returned**. Only ids that differ from `target_id` are kept as helpers: the external `league_id`, `team_id`, and the match-related `fixture_id`, `home_team_id`, `away_team_id`, `competition_id`, `match_date` and `status`. Non-applicable keys are **omitted**, never returned as `null`. Only `screen` is always present, and it may be `null`.
 
 `path` is `/post/{id}`, `/league/{id}`, `/match/{id}`, `/team/{id}` or `/screen/{id}` (the internal database id). `web_url` and `share_url` are always `/l/{code}`.
 
 #### For the mobile app
-The original navigation contract still works: read `target_type` and `target_id`. For a match link, `target_id` **is the internal match id** (the old `match_id`); there is no separate `match_id` key. Use `fixture_id` only when you need the external id. When creating a match or team link you may send `id`, `football_id`, or both; they are combined in one OR query and resolve to the same code. `id` is always our local id. The `screen` key and the extra ids (`team_id`, `fixture_id`, `home_team_id`, `away_team_id`, `competition_id` on a match link) are helpers and can be ignored if not needed. `type: "screen"` is still accepted.
+The original navigation contract still works: read `target_type` and `target_id`. For a match link, `target_id` **is the internal match id** (the old `match_id`); there is no separate `match_id` key. Use `fixture_id` only when you need the external id. When creating a match or team link, `id` must be the Football API id (`fixture_id` / `team_id`); our internal id is not accepted. For a league link, send the Football API `league_id` in `id`: `target_id` stays the internal competition id and `league_id` is returned as a helper. The `screen` key and the extra ids (`league_id`, `team_id`, `fixture_id`, `home_team_id`, `away_team_id`, `competition_id` on a match link) are helpers and can be ignored if not needed. `type: "screen"` is still accepted.
 
 The target is always read from the database. Any `redirect` query parameter is ignored, so the endpoint cannot be used as an open redirect.
 
@@ -185,7 +191,7 @@ Navigation rule for the resolve/claim response (same priority as push notificati
 | Keys present | Open |
 |---|---|
 | `target_type == "post"` | post detail (`target_id`) |
-| `target_type == "league"` | league screen (`target_id`) |
+| `target_type == "league"` | league screen (`target_id`, or `league_id` for the external id) |
 | `target_type == "team"` | team screen (`target_id`, or `team_id` for the external id) |
 | `target_type == "match"` | match detail / lineup tab (`target_id`, plus `fixture_id` as fallback) |
 | `target_type == "screen"` | screen `target_id` (`0` to `4`); the `screen` key matches it when supplied |

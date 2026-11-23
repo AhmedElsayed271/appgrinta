@@ -19,20 +19,14 @@ class DeepLinksController extends Controller
     public function store(Request $request, DeepLinkService $service): JsonResponse
     {
         $data = $request->validate([
-            'type'        => ['required', Rule::in($service->allowedTypes())],
-            // `id` is our local database id (screen number for type=screen).
-            'id'          => ['nullable', 'integer', 'min:0'],
-            'football_id' => ['nullable', 'integer', 'min:0'],
-            'screen'      => ['nullable'],
+            'type'   => ['required', Rule::in($service->allowedTypes())],
+            // The Football API id for league/match/team, our internal id for
+            // post, or the screen number for type=screen.
+            'id'     => ['required', 'integer', 'min:0'],
+            'screen' => ['nullable'],
         ]);
 
-        $targetId   = $data['id'] ?? null;
-        $footballId = $data['football_id'] ?? null;
-
-        // A Football API id must be sent in `football_id`, never in `id`.
-        if ($targetId === null && $footballId === null) {
-            return $this->errorResponse('id or football_id is required', 422);
-        }
+        $id = (int) $data['id'];
 
         // `screen` is caller-supplied and stored with the link. It is omitted
         // (null) when not sent, and rejected when it is an unknown value.
@@ -46,16 +40,11 @@ class DeepLinksController extends Controller
         }
 
         if ($data['type'] === DeepLinkService::SCREEN_TYPE
-            && ($targetId === null || !array_key_exists((int) $targetId, $service->screens()))) {
+            && !array_key_exists($id, $service->screens())) {
             return $this->errorResponse('Unknown screen', 422);
         }
 
-        $link = $service->create(
-            $data['type'],
-            $targetId !== null ? (int) $targetId : null,
-            $footballId !== null ? (int) $footballId : null,
-            $screen
-        );
+        $link = $service->create($data['type'], $id, $screen);
 
         if (!$link) {
             return $this->errorResponse('Target not found', 404);

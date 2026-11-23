@@ -112,7 +112,7 @@ class DeepLinksTest extends TestCase
     public function test_it_resolves_a_league_and_records_a_click(): void
     {
         $league = $this->createLeague();
-        $code   = $this->createLink('league', $league->id, '1');
+        $code   = $this->createLink('league', $league->league_id, '1');
 
         $clicked = $this->postJson('/api/v1/deeplinks/click', ['code' => $code])
             ->assertStatus(200)
@@ -120,6 +120,7 @@ class DeepLinksTest extends TestCase
 
         $this->assertSame('league', $clicked['target_type']);
         $this->assertSame($league->id, $clicked['target_id']);
+        $this->assertSame(2147483000, $clicked['league_id']);
         $this->assertArrayNotHasKey('competition_id', $clicked);
         $this->assertSame('1', $clicked['screen']);
         $this->assertSame('Test league', $clicked['title']);
@@ -132,7 +133,7 @@ class DeepLinksTest extends TestCase
     public function test_it_creates_and_resolves_a_match_link(): void
     {
         $match = $this->createMatch();
-        $code  = $this->createLink('match', $match->id, '2');
+        $code  = $this->createLink('match', $match->fixture_id, '2');
 
         $resolved = $this->getJson('/api/v1/deeplinks/resolve?code=' . $code)
             ->assertStatus(200)
@@ -153,100 +154,103 @@ class DeepLinksTest extends TestCase
         $this->assertArrayNotHasKey('team_id', $resolved);
     }
 
-    public function test_create_accepts_id_and_football_id(): void
+    public function test_create_accepts_only_football_api_id_for_match(): void
     {
         $match = $this->createMatch();
 
-        $byLocal = $this->postJson('/api/v1/deeplinks', [
+        $created = $this->postJson('/api/v1/deeplinks', [
             'type'   => 'match',
-            'id'     => $match->id,
+            'id'     => $match->fixture_id,
             'screen' => '2',
         ])->assertStatus(200)->json('data');
 
-        $byFootball = $this->postJson('/api/v1/deeplinks', [
-            'type'        => 'match',
-            'football_id' => $match->fixture_id,
-            'screen'      => '2',
-        ])->assertStatus(200)->json('data');
+        $this->assertSame($match->id, $created['target_id']);
+        $this->assertSame(778899, $created['fixture_id']);
+        $this->assertArrayNotHasKey('match_id', $created);
 
-        $this->assertSame($byLocal['code'], $byFootball['code']);
-        $this->assertSame($match->id, $byLocal['target_id']);
-        $this->assertSame(778899, $byLocal['fixture_id']);
+        // Our internal id is not accepted by the create API for a match.
+        $this->postJson('/api/v1/deeplinks', [
+            'type' => 'match',
+            'id' => $match->id,
+            'screen' => '2',
+        ])->assertStatus(404);
     }
 
-    public function test_create_uses_both_identifiers_in_one_or_query(): void
-    {
-        $match = $this->createMatch();
-
-        $both = $this->postJson('/api/v1/deeplinks', [
-            'type'        => 'match',
-            'id'          => $match->id,
-            'football_id' => $match->fixture_id,
-            'screen'      => '2',
-        ])->assertStatus(200)->json('data');
-
-        $this->assertSame($match->id, $both['target_id']);
-        $this->assertSame(778899, $both['fixture_id']);
-    }
-
-    public function test_create_requires_at_least_one_identifier(): void
+    public function test_create_requires_id(): void
     {
         $this->postJson('/api/v1/deeplinks', ['type' => 'match', 'screen' => '2'])
             ->assertStatus(422);
     }
 
-    public function test_team_accepts_football_id(): void
+    public function test_league_accepts_external_id_in_id_field(): void
+    {
+        $league = $this->createLeague();
+
+        $created = $this->postJson('/api/v1/deeplinks', [
+            'type'   => 'league',
+            'id'     => 2147483000,
+            'screen' => '1',
+        ])->assertStatus(200)->json('data');
+
+        $this->assertSame($league->id, $created['target_id']);
+        $this->assertSame(2147483000, $created['league_id']);
+        $this->assertNotSame($created['target_id'], $created['league_id']);
+        $this->assertArrayNotHasKey('competition_id', $created);
+
+        // Our internal id is not accepted; pick one that is not also a
+        // league_id on another competition (real data can contain both).
+        $internalId = Competition::query()
+            ->whereNotIn('id', Competition::query()->whereNotNull('league_id')->pluck('league_id'))
+            ->value('id');
+
+        $this->assertNotNull($internalId);
+
+        $this->postJson('/api/v1/deeplinks', [
+            'type'   => 'league',
+            'id'     => $internalId,
+            'screen' => '1',
+        ])->assertStatus(404);
+
+        $this->postJson('/api/v1/deeplinks', ['type' => 'league', 'screen' => '1'])
+            ->assertStatus(422);
+    }
+
+    public function test_team_accepts_football_api_id(): void
     {
         $team = $this->createTeam('Al Ahly', 2147483001);
 
         $created = $this->postJson('/api/v1/deeplinks', [
-            'type'        => 'team',
-            'football_id' => 2147483001,
-            'screen'      => '1',
+            'type'   => 'team',
+            'id'     => 2147483001,
+            'screen' => '1',
         ])->assertStatus(200)->json('data');
 
         $this->assertSame($team->id, $created['target_id']);
         $this->assertSame(2147483001, $created['team_id']);
-    }
 
-    public function test_legacy_id_is_local_only_and_football_id_is_external(): void
-    {
-        $match = $this->createMatch();
+        // Our internal id is not accepted by the create API for a team. Pick
+        // an internal id that is not also somebody's external team_id (real
+        // data can contain both ranges, so the fixture id alone is not safe).
+        $internalId = Team::query()
+            ->whereNotIn('id', Team::query()->whereNotNull('team_id')->pluck('team_id'))
+            ->value('id');
 
-        $byFootball = $this->postJson('/api/v1/deeplinks', [
-            'type'        => 'match',
-            'football_id' => $match->fixture_id,
-            'screen'      => '2',
-        ])->assertStatus(200)->json('data');
+        $this->assertNotNull($internalId);
 
-        $byLegacyId = $this->postJson('/api/v1/deeplinks', [
-            'type'   => 'match',
-            'id'     => $match->id,
-            'screen' => '2',
-        ])->assertStatus(200)->json('data');
-
-        // Both forms must normalize to the same internal id and reuse the code.
-        $this->assertSame($byLegacyId['code'], $byFootball['code']);
-        $this->assertSame($match->id, $byFootball['target_id']);
-        $this->assertSame(778899, $byFootball['fixture_id']);
-        $this->assertArrayNotHasKey('match_id', $byFootball);
-
-        // `id` is only our local id: a Football API id in `id` must not match
-        // a fixture_id.
         $this->postJson('/api/v1/deeplinks', [
-            'type'   => 'match',
-            'id'     => $match->fixture_id,
-            'screen' => '2',
+            'type' => 'team',
+            'id' => $internalId,
+            'screen' => '1',
         ])->assertStatus(404);
     }
 
-    public function test_it_creates_and_resolves_a_team_link_by_internal_or_external_id(): void
+    public function test_it_creates_and_resolves_a_team_link(): void
     {
         // A value above the internal id range keeps this deterministic on a
         // database that already contains real teams.
         $externalId = 2147483000;
         $team = $this->createTeam('Al Ahly', $externalId);
-        $code = $this->createLink('team', $team->id, '1');
+        $code = $this->createLink('team', $externalId, '1');
 
         $resolved = $this->getJson('/api/v1/deeplinks/resolve?code=' . $code)
             ->assertStatus(200)
@@ -264,9 +268,9 @@ class DeepLinksTest extends TestCase
 
         // The external Football-API id must reuse the same code.
         $again = $this->postJson('/api/v1/deeplinks', [
-            'type'        => 'team',
-            'football_id' => $externalId,
-            'screen'      => '1',
+            'type'   => 'team',
+            'id'     => $externalId,
+            'screen' => '1',
         ])->assertStatus(200)->json('data');
 
         $this->assertSame($code, $again['code']);
@@ -293,7 +297,7 @@ class DeepLinksTest extends TestCase
 
         $withScreen = $this->postJson('/api/v1/deeplinks', [
             'type'   => 'match',
-            'id'     => $match->id,
+            'id'     => $match->fixture_id,
             'screen' => '1',
         ])->assertStatus(200)->json('data');
 
@@ -301,7 +305,7 @@ class DeepLinksTest extends TestCase
 
         $withoutScreen = $this->postJson('/api/v1/deeplinks', [
             'type' => 'match',
-            'id'   => $match->id,
+            'id'   => $match->fixture_id,
         ])->assertStatus(200)->json('data');
 
         $this->assertArrayHasKey('screen', $withoutScreen);
@@ -310,7 +314,7 @@ class DeepLinksTest extends TestCase
         // Integer screen values are accepted and stored as strings.
         $asInteger = $this->postJson('/api/v1/deeplinks', [
             'type'   => 'match',
-            'id'     => $match->id,
+            'id'     => $match->fixture_id,
             'screen' => 2,
         ])->assertStatus(200)->json('data');
 
@@ -323,13 +327,13 @@ class DeepLinksTest extends TestCase
 
         $first = $this->postJson('/api/v1/deeplinks', [
             'type'   => 'match',
-            'id'     => $match->id,
+            'id'     => $match->fixture_id,
             'screen' => '1',
         ])->assertStatus(200)->json('data');
 
         $second = $this->postJson('/api/v1/deeplinks', [
             'type'   => 'match',
-            'id'     => $match->id,
+            'id'     => $match->fixture_id,
             'screen' => '2',
         ])->assertStatus(200)->json('data');
 
@@ -338,7 +342,7 @@ class DeepLinksTest extends TestCase
         // The same target + screen still reuses the same code.
         $again = $this->postJson('/api/v1/deeplinks', [
             'type'   => 'match',
-            'id'     => $match->id,
+            'id'     => $match->fixture_id,
             'screen' => '1',
         ])->assertStatus(200)->json('data');
 
@@ -380,7 +384,7 @@ class DeepLinksTest extends TestCase
         $match = $this->createMatch();
         $this->postJson('/api/v1/deeplinks', [
             'type'   => 'match',
-            'id'     => $match->id,
+            'id'     => $match->fixture_id,
             'screen' => '5',
         ])->assertStatus(422);
     }
@@ -391,7 +395,7 @@ class DeepLinksTest extends TestCase
 
         $this->postJson('/api/v1/deeplinks', [
             'type'   => 'match',
-            'id'     => $match->id,
+            'id'     => $match->fixture_id,
             'screen' => '99',
         ])->assertStatus(422);
     }
@@ -539,6 +543,9 @@ class DeepLinksTest extends TestCase
         $country = Country::query()->create([]);
 
         $league = Competition::query()->create([
+            // A value above the internal id range keeps this deterministic on
+            // a database that already contains real competitions.
+            'league_id'  => 2147483000,
             'country_id' => $country->id,
             'image'      => 'league.png',
         ]);
@@ -587,6 +594,6 @@ class DeepLinksTest extends TestCase
 
     private function createLink(string $type, int $id, ?string $screen = null): string
     {
-        return app(\App\Services\DeepLinkService::class)->create($type, $id, null, $screen)->code;
+        return app(\App\Services\DeepLinkService::class)->create($type, $id, $screen)->code;
     }
 }
